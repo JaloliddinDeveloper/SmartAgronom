@@ -35,13 +35,22 @@ public class ApplicationDbContext(
         // PostgreSQL-specific: use snake_case naming
         foreach (var entity in modelBuilder.Model.GetEntityTypes())
         {
-            entity.SetTableName(ToSnakeCase(entity.GetTableName() ?? entity.ClrType.Name));
+            // Owned types share their owner's table — skip table/key renaming to avoid
+            // PK constraint name conflicts (e.g. Order.FarmerPhone#PhoneNumber vs Order).
+            if (!entity.IsOwned())
+            {
+                entity.SetTableName(ToSnakeCase(entity.GetTableName() ?? entity.ClrType.Name));
+
+                foreach (var key in entity.GetKeys())
+                    key.SetName(ToSnakeCase(key.GetName() ?? "pk"));
+            }
 
             foreach (var property in entity.GetProperties())
-                property.SetColumnName(ToSnakeCase(property.GetColumnName()));
-
-            foreach (var key in entity.GetKeys())
-                key.SetName(ToSnakeCase(key.GetName() ?? "pk"));
+            {
+                var colName = property.GetColumnName();
+                if (colName is not null)
+                    property.SetColumnName(ToSnakeCase(colName));
+            }
 
             foreach (var fk in entity.GetForeignKeys())
                 fk.SetConstraintName(ToSnakeCase(fk.GetConstraintName() ?? "fk"));
