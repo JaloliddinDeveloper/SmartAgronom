@@ -1,7 +1,2 @@
-namespace AqlliAgronom.Infrastructure.Identity;
-
-public interface IPasswordHasher
-{
-    string Hash(string password);
-    bool Verify(string password, string hash);
-}
+// Interface defined in AqlliAgronom.Application.Common.Interfaces.IPasswordHasher
+// This file intentionally left empty to avoid duplication.

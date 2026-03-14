@@ -1,3 +1,5 @@
+using AqlliAgronom.Application.Common.Interfaces;
+
 namespace AqlliAgronom.Infrastructure.Identity;
 
 public class BcryptPasswordHasher : IPasswordHasher

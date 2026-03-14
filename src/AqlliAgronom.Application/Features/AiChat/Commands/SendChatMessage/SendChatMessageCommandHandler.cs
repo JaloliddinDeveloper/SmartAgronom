@@ -12,7 +12,6 @@ namespace AqlliAgronom.Application.Features.AiChat.Commands.SendChatMessage;
 public class SendChatMessageCommandHandler(
     IUnitOfWork uow,
     IRagPipelineService ragPipeline,
-    IFarmerSessionRepository sessionRepository,
     ILogger<SendChatMessageCommandHandler> logger)
     : IRequestHandler<SendChatMessageCommand, ChatResponseDto>
 {
@@ -70,7 +69,7 @@ public class SendChatMessageCommandHandler(
             Response: result.Response,
             TokensUsed: result.TotalTokensUsed,
             AskingClarification: result.AskingClarification,
-            SuggestedProductNames: result.SuggestedProductIds,
+            SuggestedProductNames: result.SuggestedProductIds ?? [],
             KnowledgeChunksUsed: result.UsedChunks.Count);
     }
 }

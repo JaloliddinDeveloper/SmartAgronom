@@ -1,6 +1,7 @@
 using AqlliAgronom.Application.Features.AiChat.Commands.SendChatMessage;
 using AqlliAgronom.Application.Features.AiChat.Commands.StartSession;
 using AqlliAgronom.Domain.Interfaces;
+using AqlliAgronom.Domain.Interfaces.Repositories;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Telegram.Bot;
@@ -8,6 +9,7 @@ using Telegram.Bot.Exceptions;
 using Telegram.Bot.Polling;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
+using Telegram.Bot.Types.ReplyMarkups;
 
 namespace AqlliAgronom.Infrastructure.Telegram;
 
@@ -40,7 +42,6 @@ public class TelegramUpdateHandler(
         logger.LogInformation("Telegram message from chat {ChatId}: {Text}",
             chatId, text[..Math.Min(100, text.Length)]);
 
-        // Find registered user by Telegram chat ID
         var user = await userRepository.FindByTelegramChatIdAsync(chatId, ct);
 
         if (text.StartsWith("/start"))
@@ -57,37 +58,31 @@ public class TelegramUpdateHandler(
 
         if (user is null)
         {
-            await botClient.SendTextMessageAsync(chatId,
+            await botClient.SendMessage(chatId,
                 "Siz ro'yxatdan o'tmagansiz. Iltimos, avval ro'yxatdan o'ting: /start",
                 cancellationToken: ct);
             return;
         }
 
-        // Start or resume session
         var session = await mediator.Send(new StartSessionCommand(user.Id, chatId), ct);
 
-        // Send typing indicator
-        await botClient.SendChatActionAsync(chatId, ChatAction.Typing, cancellationToken: ct);
+        await botClient.SendChatAction(chatId, ChatAction.Typing, cancellationToken: ct);
 
         try
         {
-            // Process message through AI RAG pipeline
             var response = await mediator.Send(
                 new SendChatMessageCommand(session.Id, text, user.Id), ct);
 
-            await botClient.SendTextMessageAsync(chatId, response.Response,
+            await botClient.SendMessage(chatId, response.Response,
                 parseMode: ParseMode.Markdown, cancellationToken: ct);
 
-            // If products recommended, show product buttons
             if (response.SuggestedProductNames.Count > 0)
-            {
                 await SendProductSuggestionsAsync(chatId, response.SuggestedProductNames, ct);
-            }
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Error processing AI response for chat {ChatId}", chatId);
-            await botClient.SendTextMessageAsync(chatId,
+            await botClient.SendMessage(chatId,
                 "Kechirasiz, xatolik yuz berdi. Iltimos, qayta urinib ko'ring.",
                 cancellationToken: ct);
         }
@@ -100,62 +95,46 @@ public class TelegramUpdateHandler(
 
         if (user is not null)
         {
-            await botClient.SendTextMessageAsync(chatId,
-                $"Xush kelibsiz, {user.FullName}! 🌱\n\n" +
+            await botClient.SendMessage(chatId,
+                $"Xush kelibsiz, {user.FullName}! \xF0\x9F\x8C\xB1\n\n" +
                 "Men AqlliAgronom AI — sizning aqlli agronomiyst yordamchingizman.\n" +
                 "Ekinlaringiz bilan bog'liq muammolarni yozing va men yordam beraman.",
                 cancellationToken: ct);
         }
         else
         {
-            await botClient.SendTextMessageAsync(chatId,
-                $"Assalomu alaykum, {firstName}! 🌾\n\n" +
+            await botClient.SendMessage(chatId,
+                $"Assalomu alaykum, {firstName}! \xF0\x9F\x8C\xBE\n\n" +
                 "Men AqlliAgronom AI — aqlli agronomiyst yordamchisi.\n\n" +
-                "Foydalanish uchun avval ro'yxatdan o'ting.\n" +
-                "Saytimizga o'ting va ro'yxatdan o'ting, so'ngra Telegram ID'ingizni bog'lang.",
+                "Foydalanish uchun avval ro'yxatdan o'ting.",
                 cancellationToken: ct);
         }
     }
 
     private async Task SendHelpMessageAsync(long chatId, CancellationToken ct)
     {
-        var helpText = """
-            🌱 *AqlliAgronom AI — Qo'llanma*
+        var helpText = "*AqlliAgronom AI — Qo'llanma*\n\n" +
+                       "Men sizga quyidagilarda yordam bera olaman:\n\n" +
+                       "*Kasallik va zararkunandalarni aniqlash*\n" +
+                       "Ekinlaringiz muammolarini tasvirlab yozing\n\n" +
+                       "*Mahsulot tavsiyalari*\n" +
+                       "Kimyoviy va biologik preparatlar\n\n" +
+                       "*Buyurtma berish*\n" +
+                       "Tavsiya etilgan mahsulotlarni bevosita buyurtma bering";
 
-            Men sizga quyidagilarda yordam bera olaman:
-
-            🔍 *Kasallik va zararkunandalarni aniqlash*
-            • Ekinlaringiz muammolarini tasvirlab yozing
-            • Men tahlil qilib, davolash usullarini tavsiya etaman
-
-            💊 *Mahsulot tavsiyalari*
-            • Kimyoviy va biologik preparatlar
-            • Qo'llash miqdori va usuli
-
-            📦 *Buyurtma berish*
-            • Tavsiya etilgan mahsulotlarni bevosita buyurtma bering
-
-            💬 *Savol berish*
-            Shunchaki savolingizni yozing, men javob beraman!
-            """;
-
-        await botClient.SendTextMessageAsync(chatId, helpText,
+        await botClient.SendMessage(chatId, helpText,
             parseMode: ParseMode.Markdown, cancellationToken: ct);
     }
 
     private async Task SendProductSuggestionsAsync(
         long chatId, IReadOnlyList<string> productNames, CancellationToken ct)
     {
-        var text = "📦 *Tavsiya etilgan mahsulotlar:*";
-        var buttons = productNames.Take(3).Select(name =>
-            new[] { new Telegram.Bot.Types.ReplyMarkups.InlineKeyboardButton(name)
-            {
-                CallbackData = $"product:{name}"
-            }
-        }).ToArray();
+        var buttons = productNames.Take(3)
+            .Select(name => new[] { InlineKeyboardButton.WithCallbackData(name, $"product:{name}") })
+            .ToArray();
 
-        var keyboard = new Telegram.Bot.Types.ReplyMarkups.InlineKeyboardMarkup(buttons);
-        await botClient.SendTextMessageAsync(chatId, text,
+        var keyboard = new InlineKeyboardMarkup(buttons);
+        await botClient.SendMessage(chatId, "*Tavsiya etilgan mahsulotlar:*",
             replyMarkup: keyboard,
             parseMode: ParseMode.Markdown,
             cancellationToken: ct);
@@ -163,18 +142,18 @@ public class TelegramUpdateHandler(
 
     private async Task HandleCallbackQueryAsync(CallbackQuery query, CancellationToken ct)
     {
-        await botClient.AnswerCallbackQueryAsync(query.Id, cancellationToken: ct);
+        await botClient.AnswerCallbackQuery(query.Id, cancellationToken: ct);
 
         if (query.Data?.StartsWith("product:") == true)
         {
             var productName = query.Data[8..];
-            await botClient.SendTextMessageAsync(query.Message!.Chat.Id,
-                $"📦 *{productName}* haqida ma'lumot olish uchun iltimos, veb-saytimizga tashrif buyuring yoki quyida buyurtma bering.",
+            await botClient.SendMessage(query.Message!.Chat.Id,
+                $"*{productName}* haqida ma'lumot olish uchun veb-saytimizga tashrif buyuring.",
                 cancellationToken: ct);
         }
     }
 
-    public Task HandlePollingErrorAsync(ITelegramBotClient bot, Exception exception, CancellationToken ct)
+    public Task HandleErrorAsync(ITelegramBotClient bot, Exception exception, HandleErrorSource source, CancellationToken ct)
     {
         var errorMessage = exception switch
         {
@@ -182,7 +161,7 @@ public class TelegramUpdateHandler(
             _ => exception.ToString()
         };
 
-        logger.LogError("Telegram polling error: {Error}", errorMessage);
+        logger.LogError("Telegram error [{Source}]: {Error}", source, errorMessage);
         return Task.CompletedTask;
     }
 }

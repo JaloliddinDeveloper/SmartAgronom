@@ -30,7 +30,7 @@ public class RedisCacheService(
         {
             var value = await _db.StringGetAsync(Key(key));
             if (!value.HasValue) return default;
-            return JsonSerializer.Deserialize<T>(value!, JsonOptions);
+            return JsonSerializer.Deserialize<T>((string)value!, JsonOptions);
         }
         catch (Exception ex)
         {

@@ -1,6 +1,8 @@
 using AqlliAgronom.Application.Common.Interfaces;
 using Microsoft.Extensions.Logging;
 using Telegram.Bot;
+using Telegram.Bot.Types;
+using Telegram.Bot.Types.Enums;
 using Telegram.Bot.Types.ReplyMarkups;
 
 namespace AqlliAgronom.Infrastructure.Telegram;
@@ -14,11 +16,10 @@ public class TelegramBotService(
     {
         try
         {
-            // Split long messages (Telegram 4096 char limit)
             if (text.Length <= 4096)
             {
-                await botClient.SendTextMessageAsync(chatId, text,
-                    parseMode: Telegram.Bot.Types.Enums.ParseMode.Markdown,
+                await botClient.SendMessage(chatId, text,
+                    parseMode: ParseMode.Markdown,
                     cancellationToken: ct);
             }
             else
@@ -26,10 +27,10 @@ public class TelegramBotService(
                 var chunks = SplitMessage(text, 4000);
                 foreach (var chunk in chunks)
                 {
-                    await botClient.SendTextMessageAsync(chatId, chunk,
-                        parseMode: Telegram.Bot.Types.Enums.ParseMode.Markdown,
+                    await botClient.SendMessage(chatId, chunk,
+                        parseMode: ParseMode.Markdown,
                         cancellationToken: ct);
-                    await Task.Delay(300, ct); // Avoid Telegram rate limit
+                    await Task.Delay(300, ct);
                 }
             }
         }
@@ -49,19 +50,19 @@ public class TelegramBotService(
             keyboard.Select(row =>
                 row.Select(btn => InlineKeyboardButton.WithCallbackData(btn.Text, btn.CallbackData))));
 
-        await botClient.SendTextMessageAsync(chatId, text,
+        await botClient.SendMessage(chatId, text,
             replyMarkup: inlineKeyboard,
-            parseMode: Telegram.Bot.Types.Enums.ParseMode.Markdown,
+            parseMode: ParseMode.Markdown,
             cancellationToken: ct);
     }
 
     public async Task SendPhotoAsync(
         long chatId, string imageUrl, string? caption = null, CancellationToken ct = default)
     {
-        await botClient.SendPhotoAsync(chatId,
-            photo: Telegram.Bot.Types.InputFile.FromUri(imageUrl),
+        await botClient.SendPhoto(chatId,
+            photo: InputFile.FromUri(imageUrl),
             caption: caption,
-            parseMode: Telegram.Bot.Types.Enums.ParseMode.Markdown,
+            parseMode: ParseMode.Markdown,
             cancellationToken: ct);
     }
 

@@ -1,5 +1,5 @@
 using AqlliAgronom.Application.AI.Interfaces;
-using AqlliAgronom.Domain.Interfaces.Repositories;
+using AqlliAgronom.Domain.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -32,15 +32,16 @@ public class KnowledgeIndexingJob(
     private async Task IndexPendingEntriesAsync(CancellationToken ct)
     {
         using var scope = serviceProvider.CreateScope();
-        var repository = scope.ServiceProvider.GetRequiredService<IKnowledgeEntryRepository>();
+        var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
         var embeddingService = scope.ServiceProvider.GetRequiredService<IEmbeddingService>();
         var vectorService = scope.ServiceProvider.GetRequiredService<IVectorSearchService>();
 
-        var entries = await repository.GetUnindexedPublishedAsync(ct);
+        var entries = await uow.KnowledgeEntries.GetUnindexedPublishedAsync(ct);
         if (entries.Count == 0) return;
 
         logger.LogInformation("Indexing {Count} unindexed knowledge entries...", entries.Count);
 
+        var indexed = 0;
         foreach (var entry in entries)
         {
             try
@@ -61,11 +62,10 @@ public class KnowledgeIndexingJob(
 
                 var vectorId = await vectorService.UpsertAsync(embedding, payload, CollectionName, ct: ct);
                 entry.SetVectorId(vectorId);
-
-                // Direct update (bypass UnitOfWork for background job)
-                repository.Update(entry);
+                uow.KnowledgeEntries.Update(entry);
 
                 logger.LogDebug("Indexed entry {EntryId} → vector {VectorId}", entry.Id, vectorId);
+                indexed++;
             }
             catch (Exception ex)
             {
@@ -73,9 +73,9 @@ public class KnowledgeIndexingJob(
             }
         }
 
-        // Save all updates
-        using var dbScope = serviceProvider.CreateScope();
-        // In production: inject IUnitOfWork and save
-        logger.LogInformation("Indexing batch completed for {Count} entries", entries.Count);
+        if (indexed > 0)
+            await uow.SaveChangesAsync(ct);
+
+        logger.LogInformation("Indexing batch completed: {Indexed}/{Total} entries", indexed, entries.Count);
     }
 }

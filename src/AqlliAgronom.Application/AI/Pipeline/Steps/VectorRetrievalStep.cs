@@ -12,8 +12,11 @@ public class VectorRetrievalStep(
 
     public async Task ExecuteAsync(RagPipelineContext context, CancellationToken ct)
     {
-        // Generate embedding for normalized query
-        var embedding = await embeddingService.GenerateEmbeddingAsync(context.NormalizedQuery, ct);
+        // Generate embedding for normalized query (fall back to raw query if preprocessing was skipped)
+        var queryText = string.IsNullOrWhiteSpace(context.NormalizedQuery)
+            ? context.UserQuery
+            : context.NormalizedQuery;
+        var embedding = await embeddingService.GenerateEmbeddingAsync(queryText, ct);
         context.QueryEmbedding = embedding;
 
         // Build optional filters (e.g. language filter)

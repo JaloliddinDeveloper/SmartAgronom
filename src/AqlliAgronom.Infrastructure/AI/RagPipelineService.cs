@@ -21,8 +21,11 @@ public class RagPipelineService(
         logger.LogDebug("RAG pipeline started for session {SessionId}. Query: {Query}",
             context.SessionId, context.UserQuery[..Math.Min(100, context.UserQuery.Length)]);
 
-        // Execute all pipeline steps in order
-        foreach (var step in _steps)
+        // Separate postprocessing step (must run after Claude response is populated)
+        var postStep = _steps.LastOrDefault(s => s.GetType().Name.Contains("Postprocessing"));
+
+        // Execute all pipeline steps except postprocessing (which needs the AI response first)
+        foreach (var step in _steps.Where(s => s != postStep))
         {
             var stepName = step.GetType().Name;
             try
@@ -57,10 +60,7 @@ public class RagPipelineService(
         context.FinalResponse = result.Content;
         context.TotalTokensUsed = result.InputTokens + result.OutputTokens;
 
-        // Run postprocessing step (already in pipeline, but we need response first)
-        // PostprocessingStep looks at FinalResponse — it was already registered as a step
-        // but needs response. We re-execute it here with the response populated.
-        var postStep = _steps.LastOrDefault(s => s.GetType().Name.Contains("Postprocessing"));
+        // Now run postprocessing with the populated response
         if (postStep is not null)
             await postStep.ExecuteAsync(context, ct);
 

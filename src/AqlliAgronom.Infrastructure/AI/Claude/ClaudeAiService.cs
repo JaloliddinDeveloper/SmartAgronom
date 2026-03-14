@@ -1,8 +1,7 @@
 using System.Runtime.CompilerServices;
-using AqlliAgronom.Application.AI.Interfaces;
 using Anthropic.SDK;
-using Anthropic.SDK.Constants;
 using Anthropic.SDK.Messaging;
+using AqlliAgronom.Application.AI.Interfaces;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Polly;
@@ -16,17 +15,24 @@ public class ClaudeAiService(
     : IClaudeAiService
 {
     private readonly ClaudeOptions _options = options.Value;
-    private readonly AnthropicClient _client = new(new APIAuthentication(options.Value.ApiKey));
+    private readonly AnthropicClient _client = new(options.Value.ApiKey);
 
-    private readonly AsyncRetryPolicy _retryPolicy = Policy
-        .Handle<HttpRequestException>()
-        .Or<TaskCanceledException>()
-        .WaitAndRetryAsync(
-            retryCount: options.Value.MaxRetries,
-            sleepDurationProvider: attempt =>
-                TimeSpan.FromMilliseconds(options.Value.RetryDelayMs * Math.Pow(2, attempt - 1)),
-            onRetry: (ex, delay, attempt, _) =>
-                Console.WriteLine($"Claude API retry {attempt} after {delay.TotalSeconds:F1}s: {ex.Message}"));
+    private readonly ResiliencePipeline _retryPipeline = new ResiliencePipelineBuilder()
+        .AddRetry(new RetryStrategyOptions
+        {
+            ShouldHandle = new PredicateBuilder()
+                .Handle<HttpRequestException>()
+                .Handle<TaskCanceledException>(),
+            MaxRetryAttempts = options.Value.MaxRetries,
+            Delay = TimeSpan.FromMilliseconds(options.Value.RetryDelayMs),
+            BackoffType = DelayBackoffType.Exponential,
+            OnRetry = args =>
+            {
+                Console.WriteLine($"Claude API retry {args.AttemptNumber} after {args.RetryDelay.TotalSeconds:F1}s");
+                return ValueTask.CompletedTask;
+            }
+        })
+        .Build();
 
     public async Task<AiCompletionResult> CompleteAsync(
         IReadOnlyList<AiMessage> messages,
@@ -34,7 +40,7 @@ public class ClaudeAiService(
         int maxTokens = 4096,
         CancellationToken ct = default)
     {
-        return await _retryPolicy.ExecuteAsync(async () =>
+        return await _retryPipeline.ExecuteAsync(async token =>
         {
             var claudeMessages = messages
                 .Select(m => new Message
@@ -48,14 +54,14 @@ public class ClaudeAiService(
             {
                 Model = _options.ModelId,
                 MaxTokens = maxTokens,
-                System = [new SystemMessage { Text = systemPrompt }],
+                System = [new SystemMessage(systemPrompt)],
                 Messages = claudeMessages
             };
 
             logger.LogDebug("Sending request to Claude API. Model: {Model}, Messages: {Count}",
                 _options.ModelId, messages.Count);
 
-            var response = await _client.Messages.GetClaudeMessageAsync(request, ct);
+            var response = await _client.Messages.GetClaudeMessageAsync(request, token);
 
             var content = response.Content
                 .OfType<TextContent>()
@@ -66,9 +72,9 @@ public class ClaudeAiService(
                 Content: content,
                 InputTokens: response.Usage.InputTokens,
                 OutputTokens: response.Usage.OutputTokens,
-                ModelVersion: response.Model,
+                ModelVersion: response.Model ?? _options.ModelId,
                 StopReason: response.StopReason ?? "end_turn");
-        });
+        }, ct);
     }
 
     public async IAsyncEnumerable<string> StreamAsync(
@@ -89,17 +95,16 @@ public class ClaudeAiService(
         {
             Model = _options.ModelId,
             MaxTokens = maxTokens,
-            System = [new SystemMessage { Text = systemPrompt }],
-            Messages = claudeMessages
+            System = [new SystemMessage(systemPrompt)],
+            Messages = claudeMessages,
+            Stream = true
         };
 
         await foreach (var streamEvent in _client.Messages.StreamClaudeMessageAsync(request, ct))
         {
-            if (streamEvent is ContentBlockDeltaEvent delta &&
-                delta.Delta is TextDelta textDelta)
-            {
-                yield return textDelta.Text;
-            }
+            var text = streamEvent.Delta?.Text;
+            if (!string.IsNullOrEmpty(text))
+                yield return text;
         }
     }
 }

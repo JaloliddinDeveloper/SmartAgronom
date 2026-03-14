@@ -7,10 +7,6 @@ using Telegram.Bot.Types.Enums;
 
 namespace AqlliAgronom.Infrastructure.Telegram;
 
-/// <summary>
-/// Long-polling mode for local development.
-/// In production, use webhook via TelegramWebhookController.
-/// </summary>
 public class TelegramBotHostedService(
     ITelegramBotClient botClient,
     TelegramUpdateHandler updateHandler,
@@ -26,10 +22,9 @@ public class TelegramBotHostedService(
 
         if (opts.UseWebhook)
         {
-            // Webhook mode: set webhook URL and return
             if (!string.IsNullOrWhiteSpace(opts.WebhookUrl))
             {
-                await botClient.SetWebhookAsync(
+                await botClient.SetWebhook(
                     url: opts.WebhookUrl,
                     secretToken: opts.WebhookSecret,
                     allowedUpdates: [UpdateType.Message, UpdateType.CallbackQuery],
@@ -53,7 +48,7 @@ public class TelegramBotHostedService(
             receiverOptions: receiverOptions,
             cancellationToken: _cts.Token);
 
-        var me = await botClient.GetMeAsync(ct);
+        var me = await botClient.GetMe(ct);
         logger.LogInformation("Telegram bot @{Username} started (long polling)", me.Username);
     }
 
@@ -62,7 +57,7 @@ public class TelegramBotHostedService(
         _cts?.Cancel();
 
         if (options.Value.UseWebhook)
-            await botClient.DeleteWebhookAsync(cancellationToken: ct);
+            await botClient.DeleteWebhook(cancellationToken: ct);
 
         logger.LogInformation("Telegram bot stopped");
     }

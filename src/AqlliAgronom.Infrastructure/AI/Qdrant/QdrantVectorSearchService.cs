@@ -27,16 +27,21 @@ public class QdrantVectorSearchService(
             Filter? qdrantFilter = null;
             if (filters is not null && filters.Count > 0)
             {
-                // Build Qdrant filter from dictionary
                 var conditions = filters.Select(kvp =>
-                    new Condition
+                {
+                    var match = kvp.Value switch
                     {
-                        Field = new FieldCondition
-                        {
-                            Key = kvp.Key,
-                            Match = new Match { Integer = Convert.ToInt64(kvp.Value) }
-                        }
-                    }).ToList();
+                        int i    => new Match { Integer = i },
+                        long l   => new Match { Integer = l },
+                        string s => new Match { Keyword = s },
+                        bool b   => new Match { Boolean = b },
+                        _        => new Match { Integer = Convert.ToInt64(kvp.Value) }
+                    };
+                    return new Condition
+                    {
+                        Field = new FieldCondition { Key = kvp.Key, Match = match }
+                    };
+                }).ToList();
 
                 qdrantFilter = new Filter();
                 qdrantFilter.Must.AddRange(conditions);
@@ -44,11 +49,11 @@ public class QdrantVectorSearchService(
 
             var results = await client.SearchAsync(
                 collectionName: collectionName,
-                vector: queryVector,
+                vector: new ReadOnlyMemory<float>(queryVector),
                 filter: qdrantFilter,
                 limit: (ulong)limit,
                 scoreThreshold: scoreThreshold,
-                withPayload: true,
+                payloadSelector: new WithPayloadSelector { Enable = true },
                 cancellationToken: ct);
 
             return results.Select(r => new VectorSearchResult(
@@ -94,27 +99,20 @@ public class QdrantVectorSearchService(
 
     public async Task DeleteAsync(Guid vectorId, string collectionName, CancellationToken ct = default)
     {
-        await client.DeleteAsync(
-            collectionName,
-            new PointId { Uuid = vectorId.ToString() },
-            cancellationToken: ct);
+        await client.DeleteAsync(collectionName, vectorId, cancellationToken: ct);
     }
 
     public async Task EnsureCollectionExistsAsync(
         string collectionName, int vectorDimension, CancellationToken ct = default)
     {
-        var collections = await client.ListCollectionsAsync(ct);
-        if (collections.Any(c => c == collectionName)) return;
+        if (await client.CollectionExistsAsync(collectionName, ct)) return;
 
         await client.CreateCollectionAsync(
             collectionName,
-            new VectorsConfig
+            new VectorParams
             {
-                Params = new VectorParams
-                {
-                    Size = (ulong)vectorDimension,
-                    Distance = Distance.Cosine
-                }
+                Size = (ulong)vectorDimension,
+                Distance = Distance.Cosine
             },
             cancellationToken: ct);
 
@@ -129,21 +127,21 @@ public class QdrantVectorSearchService(
 
     private static string ExtractPayloadValue(Value value) => value.KindCase switch
     {
-        Value.KindOneofCase.StringValue => value.StringValue,
+        Value.KindOneofCase.StringValue  => value.StringValue,
         Value.KindOneofCase.IntegerValue => value.IntegerValue.ToString(),
-        Value.KindOneofCase.DoubleValue => value.DoubleValue.ToString(),
-        Value.KindOneofCase.BoolValue => value.BoolValue.ToString(),
-        _ => string.Empty
+        Value.KindOneofCase.DoubleValue  => value.DoubleValue.ToString(),
+        Value.KindOneofCase.BoolValue    => value.BoolValue.ToString(),
+        _                                => string.Empty
     };
 
     private static Value BuildQdrantValue(object obj) => obj switch
     {
         string s => new Value { StringValue = s },
-        int i => new Value { IntegerValue = i },
-        long l => new Value { IntegerValue = l },
+        int i    => new Value { IntegerValue = i },
+        long l   => new Value { IntegerValue = l },
         double d => new Value { DoubleValue = d },
-        float f => new Value { DoubleValue = f },
-        bool b => new Value { BoolValue = b },
-        _ => new Value { StringValue = obj.ToString() ?? string.Empty }
+        float f  => new Value { DoubleValue = f },
+        bool b   => new Value { BoolValue = b },
+        _        => new Value { StringValue = obj.ToString() ?? string.Empty }
     };
 }

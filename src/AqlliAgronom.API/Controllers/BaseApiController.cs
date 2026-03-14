@@ -1,4 +1,4 @@
-using AqlliAgronom.Application.Common.Models;
+using AqlliAgronom.API.Models;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
@@ -12,8 +12,8 @@ public abstract class BaseApiController : ControllerBase
     protected ISender Mediator => HttpContext.RequestServices.GetRequiredService<ISender>();
 
     protected ActionResult<ApiResponse<T>> OkResponse<T>(T data, string? message = null) =>
-        Ok(ApiResponse<T>.Success(data, message));
+        Ok(ApiResponse<T>.Ok(data, message));
 
     protected ActionResult<ApiResponse<T>> CreatedResponse<T>(T data, string location) =>
-        Created(location, ApiResponse<T>.Success(data));
+        Created(location, ApiResponse<T>.Ok(data));
 }

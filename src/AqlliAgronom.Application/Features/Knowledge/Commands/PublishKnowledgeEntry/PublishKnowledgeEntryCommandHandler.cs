@@ -13,7 +13,9 @@ public class PublishKnowledgeEntryCommandHandler(IUnitOfWork uow, ICurrentUserSe
         var entry = await uow.KnowledgeEntries.GetByIdAsync(request.EntryId, ct)
             ?? throw new NotFoundException(nameof(Domain.Entities.KnowledgeEntry), request.EntryId);
 
-        entry.Publish(currentUser.UserId!.Value);
+        var userId = currentUser.UserId
+            ?? throw new UnauthorizedException("User is not authenticated.");
+        entry.Publish(userId);
         uow.KnowledgeEntries.Update(entry);
         await uow.SaveChangesAsync(ct);
     }

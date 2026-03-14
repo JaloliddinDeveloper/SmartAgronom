@@ -7,7 +7,7 @@ public class ApiResponse<T>
     public string? Message { get; init; }
     public string? TraceId { get; init; }
 
-    public static ApiResponse<T> Success(T data, string? message = null) =>
+    public static ApiResponse<T> Ok(T data, string? message = null) =>
         new() { Success = true, Data = data, Message = message };
 }
 

@@ -2,6 +2,7 @@ using AqlliAgronom.API.Middleware;
 using AqlliAgronom.Application;
 using AqlliAgronom.Infrastructure;
 using AqlliAgronom.Infrastructure.Persistence;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
 using Serilog.Events;
@@ -102,8 +103,8 @@ try
 
     // ── Health Checks ─────────────────────────────────────────────────────────
     builder.Services.AddHealthChecks()
-        .AddNpgsql(
-            builder.Configuration.GetConnectionString("PostgreSQL")!,
+        .AddNpgSql(
+            connectionString: builder.Configuration.GetConnectionString("PostgreSQL")!,
             name: "postgresql",
             tags: ["db", "infra"])
         .AddRedis(
