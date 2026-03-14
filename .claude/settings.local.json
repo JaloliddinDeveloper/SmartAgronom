@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir -p \"D:/DEV/SmartAgronom/src/AqlliAgronom.Domain/Common\" \"D:/DEV/SmartAgronom/src/AqlliAgronom.Domain/ValueObjects\" \"D:/DEV/SmartAgronom/src/AqlliAgronom.Domain/Entities\" \"D:/DEV/SmartAgronom/src/AqlliAgronom.Domain/Enums\" \"D:/DEV/SmartAgronom/src/AqlliAgronom.Domain/Events/Users\" \"D:/DEV/SmartAgronom/src/AqlliAgronom.Domain/Events/Sessions\" \"D:/DEV/SmartAgronom/src/AqlliAgronom.Domain/Events/Knowledge\" \"D:/DEV/SmartAgronom/src/AqlliAgronom.Domain/Events/Orders\" \"D:/DEV/SmartAgronom/src/AqlliAgronom.Domain/Events/Problems\" \"D:/DEV/SmartAgronom/src/AqlliAgronom.Domain/Interfaces/Repositories\" && mkdir -p \"D:/DEV/SmartAgronom/src/AqlliAgronom.Application/Common/Behaviors\" \"D:/DEV/SmartAgronom/src/AqlliAgronom.Application/Common/Exceptions\" \"D:/DEV/SmartAgronom/src/AqlliAgronom.Application/Common/Interfaces\" \"D:/DEV/SmartAgronom/src/AqlliAgronom.Application/Common/Models\" \"D:/DEV/SmartAgronom/src/AqlliAgronom.Application/Common/Mappings\" \"D:/DEV/SmartAgronom/src/AqlliAgronom.Application/AI/Interfaces\" \"D:/DEV/SmartAgronom/src/AqlliAgronom.Application/AI/Models\" \"D:/DEV/SmartAgronom/src/AqlliAgronom.Application/AI/Pipeline/Steps\" && echo \"dirs created\")"
+    ]
+  }
+}

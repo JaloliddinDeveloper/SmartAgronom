@@ -1,0 +1,40 @@
+## .NET
+bin/
+obj/
+*.user
+*.suo
+*.vs/
+.vscode/
+.idea/
+
+## Secrets & Environment
+.env
+*.env
+appsettings.*.json
+!appsettings.json
+!appsettings.Development.json
+!appsettings.Production.json
+secrets/
+
+## Logs
+logs/
+*.log
+
+## Build
+/artifacts/
+/publish/
+
+## NuGet
+*.nupkg
+*.nuspec
+.nuget/
+
+## Docker
+docker-compose.override.yml
+
+## Migrations (keep these)
+# !**/Migrations/
+
+## OS
+.DS_Store
+Thumbs.db
