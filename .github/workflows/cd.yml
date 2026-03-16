@@ -173,21 +173,86 @@ jobs:
           TG_WEBHOOK="${TG_WEBHOOK}"
           QDRANT_KEY="${QDRANT_KEY}"
 
+          # ── Parse connection string values ──────────────────────────────────
+          get_kv() { echo "\$1" | tr ';' '\n' | grep -i "^\$2=" | cut -d= -f2-; }
+          PG_HOST=\$(get_kv "\${DB_CONN}" "Host")
+          PG_PORT=\$(get_kv "\${DB_CONN}" "Port"); PG_PORT=\${PG_PORT:-5432}
+          PG_DB=\$(get_kv "\${DB_CONN}" "Database")
+          PG_USER=\$(get_kv "\${DB_CONN}" "Username")
+          PG_PASS=\$(get_kv "\${DB_CONN}" "Password")
+          REDIS_HOST=\$(echo "\${REDIS_CONN}" | cut -d: -f1)
+          REDIS_PORT=\$(echo "\${REDIS_CONN}" | cut -d: -f2 | cut -d, -f1); REDIS_PORT=\${REDIS_PORT:-6379}
+          REDIS_PASS=\$(echo "\${REDIS_CONN}" | grep -oP '(?<=password=)[^,]+' || echo "")
+
+          echo "==> Network & directories..."
+          docker network create aqlliagronom-network 2>/dev/null || true
+          mkdir -p /opt/aqlliagronom/staging/logs
+          docker volume create postgres_data 2>/dev/null || true
+          docker volume create redis_data    2>/dev/null || true
+          docker volume create qdrant_data   2>/dev/null || true
+
+          # ── PostgreSQL ───────────────────────────────────────────────────────
+          echo "==> Ensuring PostgreSQL is running..."
+          if ! docker ps --format '{{.Names}}' | grep -q "^\${PG_HOST}\$"; then
+            docker start "\${PG_HOST}" 2>/dev/null || \
+            docker run -d \
+              --name "\${PG_HOST}" \
+              --restart unless-stopped \
+              --network aqlliagronom-network \
+              -e POSTGRES_DB="\${PG_DB}" \
+              -e POSTGRES_USER="\${PG_USER}" \
+              -e POSTGRES_PASSWORD="\${PG_PASS}" \
+              -v postgres_data:/var/lib/postgresql/data \
+              postgres:16-alpine
+          fi
+          echo "Waiting for PostgreSQL..."
+          for i in \$(seq 1 12); do
+            docker exec "\${PG_HOST}" pg_isready -U "\${PG_USER}" > /dev/null 2>&1 && break
+            [ "\$i" -eq 12 ] && echo "ERROR: PostgreSQL not ready" && exit 1
+            sleep 5
+          done
+          echo "PostgreSQL ready."
+
+          # ── Redis ────────────────────────────────────────────────────────────
+          echo "==> Ensuring Redis is running..."
+          if ! docker ps --format '{{.Names}}' | grep -q "^\${REDIS_HOST}\$"; then
+            docker start "\${REDIS_HOST}" 2>/dev/null || \
+            docker run -d \
+              --name "\${REDIS_HOST}" \
+              --restart unless-stopped \
+              --network aqlliagronom-network \
+              redis:7-alpine \
+              sh -c "redis-server --appendonly yes \$([ -n \"\${REDIS_PASS}\" ] && echo \"--requirepass \${REDIS_PASS}\")"
+          fi
+          echo "Redis ready."
+
+          # ── Qdrant ───────────────────────────────────────────────────────────
+          echo "==> Ensuring Qdrant is running..."
+          if ! docker ps --format '{{.Names}}' | grep -q "^qdrant\$"; then
+            docker start qdrant 2>/dev/null || \
+            docker run -d \
+              --name qdrant \
+              --restart unless-stopped \
+              --network aqlliagronom-network \
+              -p 6334:6334 \
+              -v qdrant_data:/qdrant/storage \
+              qdrant/qdrant:v1.13.0
+          fi
+          sleep 5
+          echo "Qdrant ready."
+
+          # ── API ──────────────────────────────────────────────────────────────
           echo "==> Logging in to GHCR..."
           echo "\${GHCR_TOKEN}" | docker login ghcr.io -u "\${GHCR_USER}" --password-stdin
 
           echo "==> Pulling image: \${IMAGE_FULL}"
           docker pull "\${IMAGE_FULL}"
 
-          echo "==> Stopping old container..."
+          echo "==> Stopping old API container..."
           docker stop aqlliagronom-staging 2>/dev/null || true
           docker rm   aqlliagronom-staging 2>/dev/null || true
 
-          echo "==> Ensuring network and log dir exist..."
-          docker network create aqlliagronom-network 2>/dev/null || true
-          mkdir -p /opt/aqlliagronom/staging/logs
-
-          echo "==> Starting new container..."
+          echo "==> Starting API container..."
           docker run -d \
             --name aqlliagronom-staging \
             --restart unless-stopped \
@@ -207,19 +272,20 @@ jobs:
             -v /opt/aqlliagronom/staging/logs:/app/logs \
             "\${IMAGE_FULL}"
 
-          echo "==> Waiting for health check (up to 90s)..."
-          for i in \$(seq 1 18); do
+          echo "==> Waiting for health check (up to 120s)..."
+          for i in \$(seq 1 24); do
             if curl -sf http://localhost:8080/health/live > /dev/null 2>&1; then
               echo "==> Healthy after attempt \${i}. Deploy complete!"
               break
             fi
-            if [ "\$i" -eq 18 ]; then
-              echo "ERROR: Health check failed — rolling back"
+            if [ "\$i" -eq 24 ]; then
+              echo "ERROR: Health check failed after 120s. Container logs:"
+              docker logs --tail 50 aqlliagronom-staging || true
               docker stop aqlliagronom-staging 2>/dev/null || true
               docker rm   aqlliagronom-staging 2>/dev/null || true
               exit 1
             fi
-            echo "    Attempt \${i}/18 — waiting 5s..."
+            echo "    Attempt \${i}/24 — waiting 5s..."
             sleep 5
           done
 
