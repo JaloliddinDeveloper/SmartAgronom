@@ -121,9 +121,24 @@ jobs:
             echo "tag=edge" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Deploy to staging server via SSH
-        uses: appleboy/ssh-action@v1.2.0
+      - name: Configure SSH for staging
         env:
+          SSH_KEY: ${{ secrets.STAGING_SSH_KEY }}
+          SSH_HOST: ${{ secrets.STAGING_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          # Write key preserving newlines (env var approach avoids shell quoting issues)
+          echo "${SSH_KEY}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          # Trust the server's host key
+          ssh-keyscan -H "${SSH_HOST}" >> ~/.ssh/known_hosts 2>/dev/null
+          echo "SSH configured for ${SSH_HOST}"
+
+      - name: Deploy to staging via SSH
+        env:
+          SSH_HOST: ${{ secrets.STAGING_HOST }}
+          SSH_USER: ${{ secrets.STAGING_USER }}
           IMAGE_FULL: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.resolve.outputs.tag }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GHCR_USER: ${{ github.actor }}
@@ -135,62 +150,75 @@ jobs:
           TG_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TG_WEBHOOK: ${{ secrets.STAGING_WEBHOOK_URL }}
           QDRANT_KEY: ${{ secrets.QDRANT_API_KEY }}
-        with:
-          host: ${{ secrets.STAGING_HOST }}
-          username: ${{ secrets.STAGING_USER }}
-          key: ${{ secrets.STAGING_SSH_KEY }}
-          envs: IMAGE_FULL,GHCR_TOKEN,GHCR_USER,DB_CONN,REDIS_CONN,JWT_SECRET,CLAUDE_KEY,VOYAGE_KEY,TG_TOKEN,TG_WEBHOOK,QDRANT_KEY
-          script: |
-            set -euo pipefail
+        # Unquoted heredoc: runner shell expands ${VAR} before sending to remote
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+            -o ConnectTimeout=30 \
+            -o ServerAliveInterval=15 \
+            "${SSH_USER}@${SSH_HOST}" bash << ENDSSH
+          set -euo pipefail
 
-            echo "==> [Staging] Logging in to GHCR..."
-            echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USER}" --password-stdin
+          IMAGE_FULL="${IMAGE_FULL}"
+          GHCR_TOKEN="${GHCR_TOKEN}"
+          GHCR_USER="${GHCR_USER}"
+          DB_CONN="${DB_CONN}"
+          REDIS_CONN="${REDIS_CONN}"
+          JWT_SECRET="${JWT_SECRET}"
+          CLAUDE_KEY="${CLAUDE_KEY}"
+          VOYAGE_KEY="${VOYAGE_KEY}"
+          TG_TOKEN="${TG_TOKEN}"
+          TG_WEBHOOK="${TG_WEBHOOK}"
+          QDRANT_KEY="${QDRANT_KEY}"
 
-            echo "==> [Staging] Pulling image: ${IMAGE_FULL}"
-            docker pull "${IMAGE_FULL}"
+          echo "==> [Staging] Logging in to GHCR..."
+          echo "\${GHCR_TOKEN}" | docker login ghcr.io -u "\${GHCR_USER}" --password-stdin
 
-            echo "==> [Staging] Stopping old container..."
-            docker stop aqlliagronom-staging 2>/dev/null || true
-            docker rm   aqlliagronom-staging 2>/dev/null || true
+          echo "==> [Staging] Pulling image: \${IMAGE_FULL}"
+          docker pull "\${IMAGE_FULL}"
 
-            echo "==> [Staging] Starting new container..."
-            docker run -d \
-              --name aqlliagronom-staging \
-              --restart unless-stopped \
-              --network aqlliagronom-network \
-              -p 8080:8080 \
-              -e ASPNETCORE_ENVIRONMENT=Staging \
-              -e ASPNETCORE_URLS=http://+:8080 \
-              -e "ConnectionStrings__PostgreSQL=${DB_CONN}" \
-              -e "Redis__ConnectionString=${REDIS_CONN}" \
-              -e "Jwt__SecretKey=${JWT_SECRET}" \
-              -e "Claude__ApiKey=${CLAUDE_KEY}" \
-              -e "Embedding__ApiKey=${VOYAGE_KEY}" \
-              -e "Telegram__BotToken=${TG_TOKEN}" \
-              -e "Telegram__WebhookUrl=${TG_WEBHOOK}" \
-              -e "Telegram__UseWebhook=true" \
-              -e "Qdrant__ApiKey=${QDRANT_KEY}" \
-              -v /opt/aqlliagronom/staging/logs:/app/logs \
-              "${IMAGE_FULL}"
+          echo "==> [Staging] Stopping old container..."
+          docker stop aqlliagronom-staging 2>/dev/null || true
+          docker rm   aqlliagronom-staging 2>/dev/null || true
 
-            echo "==> [Staging] Waiting for health check (up to 90s)..."
-            for i in $(seq 1 18); do
-              if curl -sf http://localhost:8080/health/live > /dev/null 2>&1; then
-                echo "==> [Staging] Healthy after attempt ${i}. Deploy complete!"
-                break
-              fi
-              if [ "$i" -eq 18 ]; then
-                echo "ERROR: Health check failed after 90s — rolling back"
-                docker stop aqlliagronom-staging 2>/dev/null || true
-                docker rm   aqlliagronom-staging 2>/dev/null || true
-                exit 1
-              fi
-              echo "    Attempt ${i}/18 — not ready yet, waiting 5s..."
-              sleep 5
-            done
+          echo "==> [Staging] Starting new container..."
+          docker run -d \
+            --name aqlliagronom-staging \
+            --restart unless-stopped \
+            --network aqlliagronom-network \
+            -p 8080:8080 \
+            -e ASPNETCORE_ENVIRONMENT=Staging \
+            -e ASPNETCORE_URLS=http://+:8080 \
+            -e "ConnectionStrings__PostgreSQL=\${DB_CONN}" \
+            -e "Redis__ConnectionString=\${REDIS_CONN}" \
+            -e "Jwt__SecretKey=\${JWT_SECRET}" \
+            -e "Claude__ApiKey=\${CLAUDE_KEY}" \
+            -e "Embedding__ApiKey=\${VOYAGE_KEY}" \
+            -e "Telegram__BotToken=\${TG_TOKEN}" \
+            -e "Telegram__WebhookUrl=\${TG_WEBHOOK}" \
+            -e "Telegram__UseWebhook=true" \
+            -e "Qdrant__ApiKey=\${QDRANT_KEY}" \
+            -v /opt/aqlliagronom/staging/logs:/app/logs \
+            "\${IMAGE_FULL}"
 
-            echo "==> [Staging] Cleaning up dangling images..."
-            docker image prune -f || true
+          echo "==> [Staging] Waiting for health check (up to 90s)..."
+          for i in \$(seq 1 18); do
+            if curl -sf http://localhost:8080/health/live > /dev/null 2>&1; then
+              echo "==> [Staging] Healthy after attempt \${i}. Deploy complete!"
+              break
+            fi
+            if [ "\$i" -eq 18 ]; then
+              echo "ERROR: Health check failed after 90s — rolling back"
+              docker stop aqlliagronom-staging 2>/dev/null || true
+              docker rm   aqlliagronom-staging 2>/dev/null || true
+              exit 1
+            fi
+            echo "    Attempt \${i}/18 — not ready yet, waiting 5s..."
+            sleep 5
+          done
+
+          echo "==> [Staging] Cleaning up dangling images..."
+          docker image prune -f || true
+          ENDSSH
 
   # ── 3. Smoke Test Staging ─────────────────────────────────────────────────────
   smoke-test-staging:
@@ -257,12 +285,24 @@ jobs:
             echo "tag=${{ needs.build-and-push.outputs.image_version }}" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Deploy to production via SSH (Blue-Green)
-        uses: appleboy/ssh-action@v1.2.0
+      - name: Configure SSH for production
         env:
+          SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
+          SSH_HOST: ${{ secrets.PROD_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          echo "${SSH_KEY}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "${SSH_HOST}" >> ~/.ssh/known_hosts 2>/dev/null
+          echo "SSH configured for ${SSH_HOST}"
+
+      - name: Deploy to production via SSH (Blue-Green)
+        env:
+          SSH_HOST: ${{ secrets.PROD_HOST }}
+          SSH_USER: ${{ secrets.PROD_USER }}
           IMAGE_TAG: ${{ steps.resolve.outputs.tag }}
-          REGISTRY: ${{ env.REGISTRY }}
-          IMAGE_NAME: ${{ env.IMAGE_NAME }}
+          FULL_IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.resolve.outputs.tag }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GHCR_USER: ${{ github.actor }}
           DB_CONN: ${{ secrets.PROD_DB_CONNECTION }}
@@ -273,111 +313,123 @@ jobs:
           TG_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TG_WEBHOOK: ${{ secrets.PROD_WEBHOOK_URL }}
           QDRANT_KEY: ${{ secrets.QDRANT_API_KEY }}
-        with:
-          host: ${{ secrets.PROD_HOST }}
-          username: ${{ secrets.PROD_USER }}
-          key: ${{ secrets.PROD_SSH_KEY }}
-          envs: IMAGE_TAG,REGISTRY,IMAGE_NAME,GHCR_TOKEN,GHCR_USER,DB_CONN,REDIS_CONN,JWT_SECRET,CLAUDE_KEY,VOYAGE_KEY,TG_TOKEN,TG_WEBHOOK,QDRANT_KEY
-          script: |
-            set -euo pipefail
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+            -o ConnectTimeout=30 \
+            -o ServerAliveInterval=15 \
+            "${SSH_USER}@${SSH_HOST}" bash << ENDSSH
+          set -euo pipefail
 
-            FULL_IMAGE="${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}"
-            LIVE_CONTAINER="aqlliagronom-api"
-            GREEN_CONTAINER="aqlliagronom-api-green"
+          FULL_IMAGE="${FULL_IMAGE}"
+          IMAGE_TAG="${IMAGE_TAG}"
+          GHCR_TOKEN="${GHCR_TOKEN}"
+          GHCR_USER="${GHCR_USER}"
+          DB_CONN="${DB_CONN}"
+          REDIS_CONN="${REDIS_CONN}"
+          JWT_SECRET="${JWT_SECRET}"
+          CLAUDE_KEY="${CLAUDE_KEY}"
+          VOYAGE_KEY="${VOYAGE_KEY}"
+          TG_TOKEN="${TG_TOKEN}"
+          TG_WEBHOOK="${TG_WEBHOOK}"
+          QDRANT_KEY="${QDRANT_KEY}"
 
-            echo "==> [Prod] Logging in to GHCR..."
-            echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USER}" --password-stdin
+          LIVE_CONTAINER="aqlliagronom-api"
+          GREEN_CONTAINER="aqlliagronom-api-green"
 
-            echo "==> [Prod] Pulling image: ${FULL_IMAGE}"
-            docker pull "${FULL_IMAGE}"
+          echo "==> [Prod] Logging in to GHCR..."
+          echo "\${GHCR_TOKEN}" | docker login ghcr.io -u "\${GHCR_USER}" --password-stdin
 
-            # ── Blue-Green: validate new (Green) before switching ──────────────
-            echo "==> [Prod] Starting Green container on port 8081 for pre-validation..."
-            docker stop "${GREEN_CONTAINER}" 2>/dev/null || true
-            docker rm   "${GREEN_CONTAINER}" 2>/dev/null || true
+          echo "==> [Prod] Pulling image: \${FULL_IMAGE}"
+          docker pull "\${FULL_IMAGE}"
 
-            docker run -d \
-              --name "${GREEN_CONTAINER}" \
-              --network aqlliagronom-network \
-              -p 8081:8080 \
-              -e ASPNETCORE_ENVIRONMENT=Production \
-              -e ASPNETCORE_URLS=http://+:8080 \
-              -e "ConnectionStrings__PostgreSQL=${DB_CONN}" \
-              -e "Redis__ConnectionString=${REDIS_CONN}" \
-              -e "Jwt__SecretKey=${JWT_SECRET}" \
-              -e "Claude__ApiKey=${CLAUDE_KEY}" \
-              -e "Embedding__ApiKey=${VOYAGE_KEY}" \
-              -e "Telegram__BotToken=${TG_TOKEN}" \
-              -e "Telegram__WebhookUrl=${TG_WEBHOOK}" \
-              -e "Telegram__UseWebhook=true" \
-              -e "Qdrant__ApiKey=${QDRANT_KEY}" \
-              -v /opt/aqlliagronom/prod/logs:/app/logs \
-              "${FULL_IMAGE}"
+          # ── Blue-Green: validate new (Green) before switching ──────────────
+          echo "==> [Prod] Starting Green container on port 8081..."
+          docker stop "\${GREEN_CONTAINER}" 2>/dev/null || true
+          docker rm   "\${GREEN_CONTAINER}" 2>/dev/null || true
 
-            echo "==> [Prod] Validating Green container health (up to 120s)..."
-            GREEN_HEALTHY=false
-            for i in $(seq 1 24); do
-              if curl -sf http://localhost:8081/health/live > /dev/null 2>&1; then
-                echo "==> Green container healthy on attempt ${i}"
-                GREEN_HEALTHY=true
-                break
-              fi
-              echo "    Attempt ${i}/24 — not ready, waiting 5s..."
-              sleep 5
-            done
+          docker run -d \
+            --name "\${GREEN_CONTAINER}" \
+            --network aqlliagronom-network \
+            -p 8081:8080 \
+            -e ASPNETCORE_ENVIRONMENT=Production \
+            -e ASPNETCORE_URLS=http://+:8080 \
+            -e "ConnectionStrings__PostgreSQL=\${DB_CONN}" \
+            -e "Redis__ConnectionString=\${REDIS_CONN}" \
+            -e "Jwt__SecretKey=\${JWT_SECRET}" \
+            -e "Claude__ApiKey=\${CLAUDE_KEY}" \
+            -e "Embedding__ApiKey=\${VOYAGE_KEY}" \
+            -e "Telegram__BotToken=\${TG_TOKEN}" \
+            -e "Telegram__WebhookUrl=\${TG_WEBHOOK}" \
+            -e "Telegram__UseWebhook=true" \
+            -e "Qdrant__ApiKey=\${QDRANT_KEY}" \
+            -v /opt/aqlliagronom/prod/logs:/app/logs \
+            "\${FULL_IMAGE}"
 
-            if [ "$GREEN_HEALTHY" = "false" ]; then
-              echo "ERROR: Green container failed health check — aborting, Blue container untouched"
-              docker stop "${GREEN_CONTAINER}" 2>/dev/null || true
-              docker rm   "${GREEN_CONTAINER}" 2>/dev/null || true
+          echo "==> [Prod] Validating Green container health (up to 120s)..."
+          GREEN_HEALTHY=false
+          for i in \$(seq 1 24); do
+            if curl -sf http://localhost:8081/health/live > /dev/null 2>&1; then
+              echo "==> Green healthy on attempt \${i}"
+              GREEN_HEALTHY=true
+              break
+            fi
+            echo "    Attempt \${i}/24 — not ready, waiting 5s..."
+            sleep 5
+          done
+
+          if [ "\${GREEN_HEALTHY}" = "false" ]; then
+            echo "ERROR: Green failed — aborting, Blue container untouched"
+            docker stop "\${GREEN_CONTAINER}" 2>/dev/null || true
+            docker rm   "\${GREEN_CONTAINER}" 2>/dev/null || true
+            exit 1
+          fi
+
+          # Green is validated — switch traffic
+          echo "==> [Prod] Green validated. Stopping Green (temporary port)..."
+          docker stop "\${GREEN_CONTAINER}"
+          docker rm   "\${GREEN_CONTAINER}"
+
+          echo "==> [Prod] Stopping Blue container (brief downtime ~2s)..."
+          docker stop "\${LIVE_CONTAINER}" 2>/dev/null || true
+          docker rm   "\${LIVE_CONTAINER}" 2>/dev/null || true
+
+          echo "==> [Prod] Starting new container on port 8080..."
+          docker run -d \
+            --name "\${LIVE_CONTAINER}" \
+            --restart unless-stopped \
+            --network aqlliagronom-network \
+            -p 8080:8080 \
+            -e ASPNETCORE_ENVIRONMENT=Production \
+            -e ASPNETCORE_URLS=http://+:8080 \
+            -e "ConnectionStrings__PostgreSQL=\${DB_CONN}" \
+            -e "Redis__ConnectionString=\${REDIS_CONN}" \
+            -e "Jwt__SecretKey=\${JWT_SECRET}" \
+            -e "Claude__ApiKey=\${CLAUDE_KEY}" \
+            -e "Embedding__ApiKey=\${VOYAGE_KEY}" \
+            -e "Telegram__BotToken=\${TG_TOKEN}" \
+            -e "Telegram__WebhookUrl=\${TG_WEBHOOK}" \
+            -e "Telegram__UseWebhook=true" \
+            -e "Qdrant__ApiKey=\${QDRANT_KEY}" \
+            -v /opt/aqlliagronom/prod/logs:/app/logs \
+            "\${FULL_IMAGE}"
+
+          echo "==> [Prod] Final health check on port 8080..."
+          for i in \$(seq 1 12); do
+            if curl -sf http://localhost:8080/health/live > /dev/null 2>&1; then
+              echo "==> Production deploy complete! Version: \${IMAGE_TAG}"
+              break
+            fi
+            if [ "\$i" -eq 12 ]; then
+              echo "ERROR: Final health check failed — manual intervention required"
               exit 1
             fi
+            echo "    Attempt \${i}/12 — waiting 5s..."
+            sleep 5
+          done
 
-            # ── Green is healthy: stop it, restart it on production port ──────
-            echo "==> [Prod] Green validated. Stopping Green (temporary port)..."
-            docker stop "${GREEN_CONTAINER}"
-            docker rm   "${GREEN_CONTAINER}"
-
-            echo "==> [Prod] Stopping Blue container (brief downtime)..."
-            docker stop "${LIVE_CONTAINER}" 2>/dev/null || true
-            docker rm   "${LIVE_CONTAINER}" 2>/dev/null || true
-
-            echo "==> [Prod] Starting new container on production port 8080..."
-            docker run -d \
-              --name "${LIVE_CONTAINER}" \
-              --restart unless-stopped \
-              --network aqlliagronom-network \
-              -p 8080:8080 \
-              -e ASPNETCORE_ENVIRONMENT=Production \
-              -e ASPNETCORE_URLS=http://+:8080 \
-              -e "ConnectionStrings__PostgreSQL=${DB_CONN}" \
-              -e "Redis__ConnectionString=${REDIS_CONN}" \
-              -e "Jwt__SecretKey=${JWT_SECRET}" \
-              -e "Claude__ApiKey=${CLAUDE_KEY}" \
-              -e "Embedding__ApiKey=${VOYAGE_KEY}" \
-              -e "Telegram__BotToken=${TG_TOKEN}" \
-              -e "Telegram__WebhookUrl=${TG_WEBHOOK}" \
-              -e "Telegram__UseWebhook=true" \
-              -e "Qdrant__ApiKey=${QDRANT_KEY}" \
-              -v /opt/aqlliagronom/prod/logs:/app/logs \
-              "${FULL_IMAGE}"
-
-            echo "==> [Prod] Final health check on port 8080..."
-            for i in $(seq 1 12); do
-              if curl -sf http://localhost:8080/health/live > /dev/null 2>&1; then
-                echo "==> Production deploy complete! Version: ${IMAGE_TAG}"
-                break
-              fi
-              if [ "$i" -eq 12 ]; then
-                echo "ERROR: Final health check failed — manual intervention required"
-                exit 1
-              fi
-              echo "    Attempt ${i}/12 — waiting 5s..."
-              sleep 5
-            done
-
-            echo "==> [Prod] Cleaning up dangling images..."
-            docker image prune -f || true
+          echo "==> [Prod] Cleaning up dangling images..."
+          docker image prune -f || true
+          ENDSSH
 
       - name: Notify team — deploy success
         if: success()
