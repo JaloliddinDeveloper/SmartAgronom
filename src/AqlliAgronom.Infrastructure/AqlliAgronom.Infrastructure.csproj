@@ -29,7 +29,7 @@
     <!-- Identity -->
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.11" />
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="7.6.2" />
-    <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
+    <PackageReference Include="BCrypt.Net-Next" Version="4.1.0" />
 
     <!-- Telegram -->
     <PackageReference Include="Telegram.Bot" Version="22.0.0" />
