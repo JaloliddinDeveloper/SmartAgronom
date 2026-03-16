@@ -6,35 +6,28 @@ ARG BUILD_REVISION=local
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS restore
 WORKDIR /src
 
-# Copy project files first for optimal layer caching
-COPY ["src/AqlliAgronom.Domain/AqlliAgronom.Domain.csproj",         "AqlliAgronom.Domain/"]
-COPY ["src/AqlliAgronom.Application/AqlliAgronom.Application.csproj","AqlliAgronom.Application/"]
-COPY ["src/AqlliAgronom.Infrastructure/AqlliAgronom.Infrastructure.csproj","AqlliAgronom.Infrastructure/"]
-COPY ["src/AqlliAgronom.API/AqlliAgronom.API.csproj",               "AqlliAgronom.API/"]
+# Copy project files first — this layer is cached until any .csproj changes
+COPY ["src/AqlliAgronom.Domain/AqlliAgronom.Domain.csproj",              "AqlliAgronom.Domain/"]
+COPY ["src/AqlliAgronom.Application/AqlliAgronom.Application.csproj",   "AqlliAgronom.Application/"]
+COPY ["src/AqlliAgronom.Infrastructure/AqlliAgronom.Infrastructure.csproj", "AqlliAgronom.Infrastructure/"]
+COPY ["src/AqlliAgronom.API/AqlliAgronom.API.csproj",                   "AqlliAgronom.API/"]
 
 RUN dotnet restore "AqlliAgronom.API/AqlliAgronom.API.csproj"
 
-# ── Stage 2: Build ────────────────────────────────────────────────────────────
-FROM restore AS build
+# ── Stage 2: Publish ──────────────────────────────────────────────────────────
+FROM restore AS publish
 
+# Copy all source code
 COPY src/ .
 
-RUN dotnet build "AqlliAgronom.API/AqlliAgronom.API.csproj" \
-    --configuration Release \
-    --no-restore \
-    -o /app/build
-
-# ── Stage 3: Publish ──────────────────────────────────────────────────────────
-FROM build AS publish
-
+# Build + publish in one step (avoids the --no-build path resolution issue)
 RUN dotnet publish "AqlliAgronom.API/AqlliAgronom.API.csproj" \
     --configuration Release \
-    --no-build \
     --no-restore \
     -o /app/publish \
     /p:UseAppHost=false
 
-# ── Stage 4: Runtime ──────────────────────────────────────────────────────────
+# ── Stage 3: Runtime ──────────────────────────────────────────────────────────
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
 
 ARG BUILD_VERSION
@@ -48,7 +41,7 @@ LABEL org.opencontainers.image.title="AqlliAgronom API" \
 
 WORKDIR /app
 
-# Security: install curl for health checks, then clean apt cache in same layer
+# Install curl for health checks (in a single layer to minimize image size)
 RUN apt-get update \
     && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/*
