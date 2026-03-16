@@ -128,10 +128,37 @@ jobs:
         run: |
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
-          # Write key preserving newlines (env var approach avoids shell quoting issues)
-          echo "${SSH_KEY}" > ~/.ssh/deploy_key
+
+          # Robust key writer: handles base64-encoded OR plain-text PEM keys,
+          # with Windows (\r\n) or Unix (\n) line endings.
+          python3 - << 'PYEOF'
+import os, base64
+
+key = os.environ["SSH_KEY"].strip()
+
+# If the key does NOT start with "-----", assume it is base64-encoded
+if not key.startswith("-----"):
+    try:
+        key = base64.b64decode(key).decode("utf-8").strip()
+    except Exception as e:
+        print(f"base64 decode failed: {e}")
+
+# Normalise line endings and ensure trailing newline
+key = key.replace("\r\n", "\n").replace("\r", "\n").strip() + "\n"
+
+path = os.path.expanduser("~/.ssh/deploy_key")
+with open(path, "w") as fh:
+    fh.write(key)
+print("SSH key written to", path)
+PYEOF
+
           chmod 600 ~/.ssh/deploy_key
-          # Trust the server's host key
+
+          # Verify the key is valid — workflow fails HERE with a clear message if not
+          echo "--- Key fingerprint ---"
+          ssh-keygen -l -f ~/.ssh/deploy_key
+          echo "-----------------------"
+
           ssh-keyscan -H "${SSH_HOST}" >> ~/.ssh/known_hosts 2>/dev/null
           echo "SSH configured for ${SSH_HOST}"
 
@@ -292,8 +319,32 @@ jobs:
         run: |
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
-          echo "${SSH_KEY}" > ~/.ssh/deploy_key
+
+          python3 - << 'PYEOF'
+import os, base64
+
+key = os.environ["SSH_KEY"].strip()
+
+if not key.startswith("-----"):
+    try:
+        key = base64.b64decode(key).decode("utf-8").strip()
+    except Exception as e:
+        print(f"base64 decode failed: {e}")
+
+key = key.replace("\r\n", "\n").replace("\r", "\n").strip() + "\n"
+
+path = os.path.expanduser("~/.ssh/deploy_key")
+with open(path, "w") as fh:
+    fh.write(key)
+print("SSH key written to", path)
+PYEOF
+
           chmod 600 ~/.ssh/deploy_key
+
+          echo "--- Key fingerprint ---"
+          ssh-keygen -l -f ~/.ssh/deploy_key
+          echo "-----------------------"
+
           ssh-keyscan -H "${SSH_HOST}" >> ~/.ssh/known_hosts 2>/dev/null
           echo "SSH configured for ${SSH_HOST}"
 
