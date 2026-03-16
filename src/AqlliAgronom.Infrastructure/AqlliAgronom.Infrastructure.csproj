@@ -16,7 +16,7 @@
   <ItemGroup>
     <!-- Database -->
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.11" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.11" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.14" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.11" />
 
     <!-- AI -->
@@ -27,7 +27,7 @@
     <PackageReference Include="StackExchange.Redis" Version="2.8.16" />
 
     <!-- Identity -->
-    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.11" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.25" />
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="7.6.2" />
     <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
 
@@ -38,7 +38,7 @@
     <PackageReference Include="Polly" Version="8.4.1" />
 
     <!-- Infrastructure -->
-    <PackageReference Include="Microsoft.Extensions.Http" Version="8.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.5" />
     <PackageReference Include="MediatR" Version="12.4.1" />
   </ItemGroup>
 
