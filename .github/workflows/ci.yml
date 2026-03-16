@@ -175,7 +175,8 @@ jobs:
           image-ref: aqlliagronom-api:ci-${{ github.sha }}
           format: table
           severity: CRITICAL,HIGH
-          exit-code: '1'   # Fail CI if critical/high CVEs found in image
+          ignore-unfixed: true   # Skip CVEs with no available fix (base OS packages)
+          exit-code: '1'         # Fail CI only if a FIXABLE critical/high CVE exists
 
       - name: Verify container entrypoint
         run: |
