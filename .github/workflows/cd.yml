@@ -121,16 +121,10 @@ jobs:
         run: |
           mkdir -p ~/.ssh && chmod 700 ~/.ssh
 
-          # Handles both: base64-encoded key OR plain-text PEM key
-          # Try base64 decode first; if result contains "PRIVATE KEY" header, use it
-          if printf '%s' "${SSH_KEY}" | base64 -d 2>/dev/null | grep -q "PRIVATE KEY"; then
-            printf '%s' "${SSH_KEY}" | base64 -d > ~/.ssh/deploy_key
-            echo "Key loaded via base64 decode"
-          else
-            # Plain-text key: strip carriage returns, ensure trailing newline
-            printf '%s\n' "${SSH_KEY}" | tr -d '\r' > ~/.ssh/deploy_key
-            echo "Key loaded as plain text"
-          fi
+          # tr -d '[:space:]' strips whitespace/newlines that break base64 decoding.
+          # Fallback (||) handles plain-text PEM keys stored without base64 encoding.
+          echo "${SSH_KEY}" | tr -d '[:space:]' | base64 -d > ~/.ssh/deploy_key 2>/dev/null \
+            || printf '%s\n' "${SSH_KEY}" | tr -d '\r' > ~/.ssh/deploy_key
 
           chmod 600 ~/.ssh/deploy_key
           echo "--- Key fingerprint ---"
@@ -290,13 +284,8 @@ jobs:
         run: |
           mkdir -p ~/.ssh && chmod 700 ~/.ssh
 
-          if printf '%s' "${SSH_KEY}" | base64 -d 2>/dev/null | grep -q "PRIVATE KEY"; then
-            printf '%s' "${SSH_KEY}" | base64 -d > ~/.ssh/deploy_key
-            echo "Key loaded via base64 decode"
-          else
-            printf '%s\n' "${SSH_KEY}" | tr -d '\r' > ~/.ssh/deploy_key
-            echo "Key loaded as plain text"
-          fi
+          echo "${SSH_KEY}" | tr -d '[:space:]' | base64 -d > ~/.ssh/deploy_key 2>/dev/null \
+            || printf '%s\n' "${SSH_KEY}" | tr -d '\r' > ~/.ssh/deploy_key
 
           chmod 600 ~/.ssh/deploy_key
           echo "--- Key fingerprint ---"
