@@ -24,10 +24,9 @@ env:
   DOTNET_NOLOGO: 'true'
   DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
 
-# Prevent concurrent deploys to the same environment
 concurrency:
   group: deploy-${{ github.ref }}
-  cancel-in-progress: false   # Never cancel in-progress deploys
+  cancel-in-progress: false
 
 jobs:
   # ── 1. Build & Push Docker Image ─────────────────────────────────────────────
@@ -46,7 +45,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up QEMU (multi-platform builds)
+      - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
@@ -59,20 +58,16 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract Docker metadata (tags & labels)
+      - name: Extract Docker metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            # Semver tags on tagged releases: v1.2.3 → 1.2.3 and 1.2
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            # Short commit SHA (always included)
             type=sha,prefix=sha-,format=short
-            # "latest" only on tagged releases (e.g. v1.0.0)
             type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
-            # "edge" on master branch pushes (latest development build)
             type=raw,value=edge,enable=${{ github.ref == 'refs/heads/master' }}
           labels: |
             org.opencontainers.image.title=AqlliAgronom API
@@ -101,15 +96,13 @@ jobs:
     environment:
       name: staging
       url: https://staging-api.aqlliagronom.uz
-
-    # Run on master push, tag push, or manual staging trigger
-    if: |
+    if: >-
       github.ref == 'refs/heads/master' ||
       startsWith(github.ref, 'refs/tags/v') ||
       (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging')
 
     steps:
-      - name: Resolve image tag for staging
+      - name: Resolve image tag
         id: resolve
         run: |
           MANUAL_TAG="${{ github.event.inputs.image_tag }}"
@@ -126,39 +119,23 @@ jobs:
           SSH_KEY: ${{ secrets.STAGING_SSH_KEY }}
           SSH_HOST: ${{ secrets.STAGING_HOST }}
         run: |
-          mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
 
-          # Robust key writer: handles base64-encoded OR plain-text PEM keys,
-          # with Windows (\r\n) or Unix (\n) line endings.
-          python3 - << 'PYEOF'
-import os, base64
-
-key = os.environ["SSH_KEY"].strip()
-
-# If the key does NOT start with "-----", assume it is base64-encoded
-if not key.startswith("-----"):
-    try:
-        key = base64.b64decode(key).decode("utf-8").strip()
-    except Exception as e:
-        print(f"base64 decode failed: {e}")
-
-# Normalise line endings and ensure trailing newline
-key = key.replace("\r\n", "\n").replace("\r", "\n").strip() + "\n"
-
-path = os.path.expanduser("~/.ssh/deploy_key")
-with open(path, "w") as fh:
-    fh.write(key)
-print("SSH key written to", path)
-PYEOF
+          # Handles both: base64-encoded key OR plain-text PEM key
+          # Try base64 decode first; if result contains "PRIVATE KEY" header, use it
+          if printf '%s' "${SSH_KEY}" | base64 -d 2>/dev/null | grep -q "PRIVATE KEY"; then
+            printf '%s' "${SSH_KEY}" | base64 -d > ~/.ssh/deploy_key
+            echo "Key loaded via base64 decode"
+          else
+            # Plain-text key: strip carriage returns, ensure trailing newline
+            printf '%s\n' "${SSH_KEY}" | tr -d '\r' > ~/.ssh/deploy_key
+            echo "Key loaded as plain text"
+          fi
 
           chmod 600 ~/.ssh/deploy_key
-
-          # Verify the key is valid — workflow fails HERE with a clear message if not
           echo "--- Key fingerprint ---"
           ssh-keygen -l -f ~/.ssh/deploy_key
           echo "-----------------------"
-
           ssh-keyscan -H "${SSH_HOST}" >> ~/.ssh/known_hosts 2>/dev/null
           echo "SSH configured for ${SSH_HOST}"
 
@@ -177,7 +154,6 @@ PYEOF
           TG_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TG_WEBHOOK: ${{ secrets.STAGING_WEBHOOK_URL }}
           QDRANT_KEY: ${{ secrets.QDRANT_API_KEY }}
-        # Unquoted heredoc: runner shell expands ${VAR} before sending to remote
         run: |
           ssh -i ~/.ssh/deploy_key \
             -o ConnectTimeout=30 \
@@ -197,17 +173,21 @@ PYEOF
           TG_WEBHOOK="${TG_WEBHOOK}"
           QDRANT_KEY="${QDRANT_KEY}"
 
-          echo "==> [Staging] Logging in to GHCR..."
+          echo "==> Logging in to GHCR..."
           echo "\${GHCR_TOKEN}" | docker login ghcr.io -u "\${GHCR_USER}" --password-stdin
 
-          echo "==> [Staging] Pulling image: \${IMAGE_FULL}"
+          echo "==> Pulling image: \${IMAGE_FULL}"
           docker pull "\${IMAGE_FULL}"
 
-          echo "==> [Staging] Stopping old container..."
+          echo "==> Stopping old container..."
           docker stop aqlliagronom-staging 2>/dev/null || true
           docker rm   aqlliagronom-staging 2>/dev/null || true
 
-          echo "==> [Staging] Starting new container..."
+          echo "==> Ensuring network and log dir exist..."
+          docker network create aqlliagronom-network 2>/dev/null || true
+          mkdir -p /opt/aqlliagronom/staging/logs
+
+          echo "==> Starting new container..."
           docker run -d \
             --name aqlliagronom-staging \
             --restart unless-stopped \
@@ -227,23 +207,22 @@ PYEOF
             -v /opt/aqlliagronom/staging/logs:/app/logs \
             "\${IMAGE_FULL}"
 
-          echo "==> [Staging] Waiting for health check (up to 90s)..."
+          echo "==> Waiting for health check (up to 90s)..."
           for i in \$(seq 1 18); do
             if curl -sf http://localhost:8080/health/live > /dev/null 2>&1; then
-              echo "==> [Staging] Healthy after attempt \${i}. Deploy complete!"
+              echo "==> Healthy after attempt \${i}. Deploy complete!"
               break
             fi
             if [ "\$i" -eq 18 ]; then
-              echo "ERROR: Health check failed after 90s — rolling back"
+              echo "ERROR: Health check failed — rolling back"
               docker stop aqlliagronom-staging 2>/dev/null || true
               docker rm   aqlliagronom-staging 2>/dev/null || true
               exit 1
             fi
-            echo "    Attempt \${i}/18 — not ready yet, waiting 5s..."
+            echo "    Attempt \${i}/18 — waiting 5s..."
             sleep 5
           done
 
-          echo "==> [Staging] Cleaning up dangling images..."
           docker image prune -f || true
           ENDSSH
 
@@ -254,37 +233,31 @@ PYEOF
     needs: deploy-staging
 
     steps:
-      - name: Health endpoint check (with retries)
+      - name: Health check with retries
         run: |
-          BASE_URL="https://staging-api.aqlliagronom.uz"
-          echo "Checking ${BASE_URL}/health ..."
           for i in $(seq 1 6); do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${BASE_URL}/health" || echo "000")
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+              https://staging-api.aqlliagronom.uz/health || echo "000")
             if [ "$STATUS" = "200" ]; then
-              echo "Health check passed (HTTP $STATUS) on attempt ${i}"
+              echo "Health check passed (HTTP $STATUS)"
               break
             fi
             if [ "$i" -eq 6 ]; then
-              echo "ERROR: Health check returned HTTP $STATUS after 6 attempts (60s total)"
+              echo "ERROR: Health check returned $STATUS after 6 attempts"
               exit 1
             fi
-            echo "Attempt ${i}/6 returned HTTP $STATUS — retrying in 10s..."
+            echo "Attempt $i/6 → HTTP $STATUS, retrying in 10s..."
             sleep 10
           done
 
-      - name: API validation smoke test
+      - name: API smoke test
         run: |
-          BASE_URL="https://staging-api.aqlliagronom.uz"
-          echo "Testing auth endpoint (expect HTTP 422 on empty payload)..."
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-            -X POST "${BASE_URL}/api/v1/auth/register" \
+            -X POST https://staging-api.aqlliagronom.uz/api/v1/auth/register \
             -H "Content-Type: application/json" \
             -d '{"fullName":"","phone":"","password":""}')
-          echo "Auth endpoint returned: HTTP $STATUS"
-          if [ "$STATUS" != "422" ]; then
-            echo "ERROR: Expected HTTP 422 (validation error), got $STATUS"
-            exit 1
-          fi
+          echo "Auth endpoint → HTTP $STATUS"
+          [ "$STATUS" = "422" ] || { echo "Expected 422, got $STATUS"; exit 1; }
           echo "All smoke tests passed!"
 
   # ── 4. Deploy to Production (Blue-Green) ─────────────────────────────────────
@@ -295,9 +268,7 @@ PYEOF
     environment:
       name: production
       url: https://api.aqlliagronom.uz
-
-    # Only deploy to production on tagged releases or explicit manual trigger
-    if: |
+    if: >-
       startsWith(github.ref, 'refs/tags/v') ||
       (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production')
 
@@ -317,34 +288,20 @@ PYEOF
           SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
           SSH_HOST: ${{ secrets.PROD_HOST }}
         run: |
-          mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
 
-          python3 - << 'PYEOF'
-import os, base64
-
-key = os.environ["SSH_KEY"].strip()
-
-if not key.startswith("-----"):
-    try:
-        key = base64.b64decode(key).decode("utf-8").strip()
-    except Exception as e:
-        print(f"base64 decode failed: {e}")
-
-key = key.replace("\r\n", "\n").replace("\r", "\n").strip() + "\n"
-
-path = os.path.expanduser("~/.ssh/deploy_key")
-with open(path, "w") as fh:
-    fh.write(key)
-print("SSH key written to", path)
-PYEOF
+          if printf '%s' "${SSH_KEY}" | base64 -d 2>/dev/null | grep -q "PRIVATE KEY"; then
+            printf '%s' "${SSH_KEY}" | base64 -d > ~/.ssh/deploy_key
+            echo "Key loaded via base64 decode"
+          else
+            printf '%s\n' "${SSH_KEY}" | tr -d '\r' > ~/.ssh/deploy_key
+            echo "Key loaded as plain text"
+          fi
 
           chmod 600 ~/.ssh/deploy_key
-
           echo "--- Key fingerprint ---"
           ssh-keygen -l -f ~/.ssh/deploy_key
           echo "-----------------------"
-
           ssh-keyscan -H "${SSH_HOST}" >> ~/.ssh/known_hosts 2>/dev/null
           echo "SSH configured for ${SSH_HOST}"
 
@@ -387,14 +344,17 @@ PYEOF
           LIVE_CONTAINER="aqlliagronom-api"
           GREEN_CONTAINER="aqlliagronom-api-green"
 
-          echo "==> [Prod] Logging in to GHCR..."
+          echo "==> Logging in to GHCR..."
           echo "\${GHCR_TOKEN}" | docker login ghcr.io -u "\${GHCR_USER}" --password-stdin
 
-          echo "==> [Prod] Pulling image: \${FULL_IMAGE}"
+          echo "==> Pulling image: \${FULL_IMAGE}"
           docker pull "\${FULL_IMAGE}"
 
-          # ── Blue-Green: validate new (Green) before switching ──────────────
-          echo "==> [Prod] Starting Green container on port 8081..."
+          echo "==> Ensuring network and log dir exist..."
+          docker network create aqlliagronom-network 2>/dev/null || true
+          mkdir -p /opt/aqlliagronom/prod/logs
+
+          echo "==> Starting Green container on port 8081..."
           docker stop "\${GREEN_CONTAINER}" 2>/dev/null || true
           docker rm   "\${GREEN_CONTAINER}" 2>/dev/null || true
 
@@ -416,35 +376,30 @@ PYEOF
             -v /opt/aqlliagronom/prod/logs:/app/logs \
             "\${FULL_IMAGE}"
 
-          echo "==> [Prod] Validating Green container health (up to 120s)..."
-          GREEN_HEALTHY=false
+          echo "==> Validating Green (up to 120s)..."
+          GREEN_OK=false
           for i in \$(seq 1 24); do
             if curl -sf http://localhost:8081/health/live > /dev/null 2>&1; then
               echo "==> Green healthy on attempt \${i}"
-              GREEN_HEALTHY=true
+              GREEN_OK=true
               break
             fi
-            echo "    Attempt \${i}/24 — not ready, waiting 5s..."
+            echo "    Attempt \${i}/24 — waiting 5s..."
             sleep 5
           done
 
-          if [ "\${GREEN_HEALTHY}" = "false" ]; then
-            echo "ERROR: Green failed — aborting, Blue container untouched"
+          if [ "\${GREEN_OK}" = "false" ]; then
+            echo "ERROR: Green failed — Blue container untouched"
             docker stop "\${GREEN_CONTAINER}" 2>/dev/null || true
             docker rm   "\${GREEN_CONTAINER}" 2>/dev/null || true
             exit 1
           fi
 
-          # Green is validated — switch traffic
-          echo "==> [Prod] Green validated. Stopping Green (temporary port)..."
-          docker stop "\${GREEN_CONTAINER}"
-          docker rm   "\${GREEN_CONTAINER}"
-
-          echo "==> [Prod] Stopping Blue container (brief downtime ~2s)..."
+          echo "==> Switching: stop Green temp, stop Blue, start new on :8080..."
+          docker stop "\${GREEN_CONTAINER}" && docker rm "\${GREEN_CONTAINER}"
           docker stop "\${LIVE_CONTAINER}" 2>/dev/null || true
           docker rm   "\${LIVE_CONTAINER}" 2>/dev/null || true
 
-          echo "==> [Prod] Starting new container on port 8080..."
           docker run -d \
             --name "\${LIVE_CONTAINER}" \
             --restart unless-stopped \
@@ -464,25 +419,24 @@ PYEOF
             -v /opt/aqlliagronom/prod/logs:/app/logs \
             "\${FULL_IMAGE}"
 
-          echo "==> [Prod] Final health check on port 8080..."
+          echo "==> Final health check on port 8080..."
           for i in \$(seq 1 12); do
             if curl -sf http://localhost:8080/health/live > /dev/null 2>&1; then
               echo "==> Production deploy complete! Version: \${IMAGE_TAG}"
               break
             fi
             if [ "\$i" -eq 12 ]; then
-              echo "ERROR: Final health check failed — manual intervention required"
+              echo "ERROR: Final health check failed"
               exit 1
             fi
             echo "    Attempt \${i}/12 — waiting 5s..."
             sleep 5
           done
 
-          echo "==> [Prod] Cleaning up dangling images..."
           docker image prune -f || true
           ENDSSH
 
-      - name: Notify team — deploy success
+      - name: Notify success
         if: success()
         uses: appleboy/telegram-action@v1.0.0
         with:
@@ -490,13 +444,11 @@ PYEOF
           token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           format: markdown
           message: |
-            ✅ *AqlliAgronom AI* — Production Deploy SUCCESS
+            ✅ *AqlliAgronom* — Production Deploy SUCCESS
             Version: `${{ needs.build-and-push.outputs.image_version }}`
             By: `${{ github.actor }}`
-            Commit: `${{ github.sha }}`
-            Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
-      - name: Notify team — deploy failure
+      - name: Notify failure
         if: failure()
         uses: appleboy/telegram-action@v1.0.0
         with:
@@ -504,7 +456,6 @@ PYEOF
           token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           format: markdown
           message: |
-            ❌ *AqlliAgronom AI* — Production Deploy FAILED
-            Tag: `${{ github.ref }}`
+            ❌ *AqlliAgronom* — Production Deploy FAILED
             By: `${{ github.actor }}`
             Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
