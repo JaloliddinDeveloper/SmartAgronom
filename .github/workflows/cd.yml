@@ -154,6 +154,7 @@ jobs:
           TG_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TG_WEBHOOK: ${{ secrets.STAGING_WEBHOOK_URL }}
           QDRANT_KEY: ${{ secrets.QDRANT_API_KEY }}
+          CERTBOT_EMAIL: ${{ secrets.CERTBOT_EMAIL }}
         run: |
           ssh -i ~/.ssh/deploy_key \
             -o ConnectTimeout=30 \
@@ -172,6 +173,7 @@ jobs:
           TG_TOKEN="${TG_TOKEN}"
           TG_WEBHOOK="${TG_WEBHOOK}"
           QDRANT_KEY="${QDRANT_KEY}"
+          CERTBOT_EMAIL="${CERTBOT_EMAIL}"
 
           # ── Fixed container names (always used on this host) ─────────────────
           PG_CONTAINER="postgres"
@@ -300,6 +302,102 @@ jobs:
             sleep 5
           done
 
+          # ── Nginx + Certbot ────────────────────────────────────────────────────
+          NGINX_DOMAIN="staging-api.faastergo.uz"
+          NGINX_CONF_DIR="/opt/aqlliagronom/staging/nginx"
+          mkdir -p "\${NGINX_CONF_DIR}"
+
+          # Write nginx config (quoted heredoc keeps nginx $variables literal)
+          cat > "\${NGINX_CONF_DIR}/app.conf" << 'NGINXEOF'
+server {
+    listen 80;
+    server_name __DOMAIN__;
+    location /.well-known/acme-challenge/ { root /var/www/certbot; }
+    location / { return 301 https://$host$request_uri; }
+}
+server {
+    listen 443 ssl;
+    server_name __DOMAIN__;
+    ssl_certificate     /etc/letsencrypt/live/__DOMAIN__/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/__DOMAIN__/privkey.pem;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_ciphers         ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384;
+    ssl_prefer_server_ciphers off;
+    add_header Strict-Transport-Security "max-age=63072000; includeSubDomains" always;
+    add_header X-Frame-Options DENY always;
+    add_header X-Content-Type-Options nosniff always;
+    client_max_body_size 10M;
+    location / {
+        proxy_pass         http://aqlliagronom-staging:8080;
+        proxy_http_version 1.1;
+        proxy_set_header   Host              $host;
+        proxy_set_header   X-Real-IP         $remote_addr;
+        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto https;
+        proxy_read_timeout 120s;
+        proxy_buffering    off;
+    }
+}
+NGINXEOF
+          sed -i "s/__DOMAIN__/\${NGINX_DOMAIN}/g" "\${NGINX_CONF_DIR}/app.conf"
+
+          # Docker volumes for certbot certs and ACME webroot
+          docker volume create certbot_staging_certs 2>/dev/null || true
+          docker volume create certbot_staging_www   2>/dev/null || true
+
+          # Generate a dummy self-signed cert if no real cert exists yet.
+          # This lets nginx start on first deploy before certbot runs.
+          if ! docker run --rm -v certbot_staging_certs:/etc/letsencrypt alpine \
+               test -f "/etc/letsencrypt/live/\${NGINX_DOMAIN}/fullchain.pem" 2>/dev/null; then
+            echo "==> Generating temporary self-signed cert for \${NGINX_DOMAIN}..."
+            docker run --rm -v certbot_staging_certs:/etc/letsencrypt alpine sh -c \
+              "apk add --no-cache openssl >/dev/null 2>&1 && \
+               mkdir -p /etc/letsencrypt/live/\${NGINX_DOMAIN} && \
+               openssl req -x509 -nodes -newkey rsa:2048 \
+                 -keyout /etc/letsencrypt/live/\${NGINX_DOMAIN}/privkey.pem \
+                 -out    /etc/letsencrypt/live/\${NGINX_DOMAIN}/fullchain.pem \
+                 -days 1 -subj /CN=\${NGINX_DOMAIN} 2>/dev/null"
+          fi
+
+          # Start or reload nginx
+          if docker ps --format '{{.Names}}' | grep -q '^aqlliagronom-nginx$'; then
+            echo "==> Reloading nginx config..."
+            docker exec aqlliagronom-nginx nginx -s reload || true
+          else
+            docker stop aqlliagronom-nginx 2>/dev/null || true
+            docker rm   aqlliagronom-nginx 2>/dev/null || true
+            echo "==> Starting nginx..."
+            docker run -d \
+              --name aqlliagronom-nginx \
+              --restart unless-stopped \
+              --network aqlliagronom-network \
+              -p 80:80 -p 443:443 \
+              -v "\${NGINX_CONF_DIR}:/etc/nginx/conf.d:ro" \
+              -v certbot_staging_certs:/etc/letsencrypt:ro \
+              -v certbot_staging_www:/var/www/certbot:ro \
+              nginx:1.28-alpine
+          fi
+
+          # Obtain real Let's Encrypt cert via webroot challenge (idempotent).
+          # Skipped automatically if a valid cert already exists.
+          if [ -n "\${CERTBOT_EMAIL}" ]; then
+            echo "==> Running certbot..."
+            docker run --rm \
+              -v certbot_staging_certs:/etc/letsencrypt \
+              -v certbot_staging_www:/var/www/certbot \
+              certbot/certbot certonly \
+                --webroot -w /var/www/certbot \
+                -d "\${NGINX_DOMAIN}" \
+                --non-interactive --agree-tos \
+                -m "\${CERTBOT_EMAIL}" \
+                --keep-until-expiring 2>&1 | tail -5 || true
+            # Reload nginx to pick up the newly issued certificate
+            docker exec aqlliagronom-nginx nginx -s reload 2>/dev/null || true
+          else
+            echo "==> CERTBOT_EMAIL secret not set — skipping Let's Encrypt cert."
+          fi
+          echo "==> Nginx ready at https://\${NGINX_DOMAIN}"
+
           docker image prune -f || true
           ENDSSH
 
@@ -313,12 +411,10 @@ jobs:
 
     steps:
       - name: Health check with retries
-        env:
-          STAGING_HOST: ${{ secrets.STAGING_HOST }}
         run: |
-          BASE="http://${STAGING_HOST}:8080"
+          BASE="https://staging-api.faastergo.uz"
           for i in $(seq 1 6); do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${BASE}/health/live")
+            STATUS=$(curl -sk -o /dev/null -w "%{http_code}" "${BASE}/health/live")
             if [ "$STATUS" = "200" ]; then
               echo "Health check passed (HTTP $STATUS)"
               break
@@ -332,11 +428,9 @@ jobs:
           done
 
       - name: API smoke test
-        env:
-          STAGING_HOST: ${{ secrets.STAGING_HOST }}
         run: |
-          BASE="http://${STAGING_HOST}:8080"
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+          BASE="https://staging-api.faastergo.uz"
+          STATUS=$(curl -sk -o /dev/null -w "%{http_code}" \
             -X POST "${BASE}/api/v1/auth/register" \
             -H "Content-Type: application/json" \
             -d '{"fullName":"","phone":"","password":""}')
