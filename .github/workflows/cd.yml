@@ -173,16 +173,27 @@ jobs:
           TG_WEBHOOK="${TG_WEBHOOK}"
           QDRANT_KEY="${QDRANT_KEY}"
 
-          # ── Parse connection string values ──────────────────────────────────
+          # ── Fixed container names (always used on this host) ─────────────────
+          PG_CONTAINER="postgres"
+          REDIS_CONTAINER="redis"
+          QDRANT_CONTAINER="qdrant"
+
+          # ── Parse credentials from secrets ───────────────────────────────────
           get_kv() { echo "\$1" | tr ';' '\n' | grep -i "^\$2=" | cut -d= -f2-; }
-          PG_HOST=\$(get_kv "\${DB_CONN}" "Host")
           PG_PORT=\$(get_kv "\${DB_CONN}" "Port"); PG_PORT=\${PG_PORT:-5432}
-          PG_DB=\$(get_kv "\${DB_CONN}" "Database")
+          PG_DB=\$(get_kv   "\${DB_CONN}" "Database")
           PG_USER=\$(get_kv "\${DB_CONN}" "Username")
           PG_PASS=\$(get_kv "\${DB_CONN}" "Password")
-          REDIS_HOST=\$(echo "\${REDIS_CONN}" | cut -d: -f1)
           REDIS_PORT=\$(echo "\${REDIS_CONN}" | cut -d: -f2 | cut -d, -f1); REDIS_PORT=\${REDIS_PORT:-6379}
           REDIS_PASS=\$(echo "\${REDIS_CONN}" | grep -oP '(?<=password=)[^,]+' || echo "")
+
+          # Rewrite host in connection strings to Docker container names so the
+          # API container resolves them via the Docker network (not "localhost").
+          DB_CONN_DOCKER=\$(echo "\${DB_CONN}" | sed "s/Host=[^;]*/Host=\${PG_CONTAINER}/I")
+          REDIS_CONN_DOCKER="\${REDIS_CONTAINER}:\${REDIS_PORT}\$(echo "\${REDIS_CONN}" | grep -oP ',.*' || echo '')"
+
+          echo "==> PG container: \${PG_CONTAINER}, DB: \${PG_DB}, User: \${PG_USER}"
+          echo "==> Redis container: \${REDIS_CONTAINER}:\${REDIS_PORT}"
 
           echo "==> Network & directories..."
           docker network create aqlliagronom-network 2>/dev/null || true
@@ -193,10 +204,10 @@ jobs:
 
           # ── PostgreSQL ───────────────────────────────────────────────────────
           echo "==> Ensuring PostgreSQL is running..."
-          if ! docker ps --format '{{.Names}}' | grep -q "^\${PG_HOST}\$"; then
-            docker start "\${PG_HOST}" 2>/dev/null || \
+          if ! docker ps --format '{{.Names}}' | grep -q "^\${PG_CONTAINER}\$"; then
+            docker start "\${PG_CONTAINER}" 2>/dev/null || \
             docker run -d \
-              --name "\${PG_HOST}" \
+              --name "\${PG_CONTAINER}" \
               --restart unless-stopped \
               --network aqlliagronom-network \
               -e POSTGRES_DB="\${PG_DB}" \
@@ -207,7 +218,7 @@ jobs:
           fi
           echo "Waiting for PostgreSQL..."
           for i in \$(seq 1 12); do
-            docker exec "\${PG_HOST}" pg_isready -U "\${PG_USER}" > /dev/null 2>&1 && break
+            docker exec "\${PG_CONTAINER}" pg_isready -U "\${PG_USER}" > /dev/null 2>&1 && break
             [ "\$i" -eq 12 ] && echo "ERROR: PostgreSQL not ready" && exit 1
             sleep 5
           done
@@ -215,10 +226,10 @@ jobs:
 
           # ── Redis ────────────────────────────────────────────────────────────
           echo "==> Ensuring Redis is running..."
-          if ! docker ps --format '{{.Names}}' | grep -q "^\${REDIS_HOST}\$"; then
-            docker start "\${REDIS_HOST}" 2>/dev/null || \
+          if ! docker ps --format '{{.Names}}' | grep -q "^\${REDIS_CONTAINER}\$"; then
+            docker start "\${REDIS_CONTAINER}" 2>/dev/null || \
             docker run -d \
-              --name "\${REDIS_HOST}" \
+              --name "\${REDIS_CONTAINER}" \
               --restart unless-stopped \
               --network aqlliagronom-network \
               redis:7-alpine \
@@ -228,17 +239,16 @@ jobs:
 
           # ── Qdrant ───────────────────────────────────────────────────────────
           echo "==> Ensuring Qdrant is running..."
-          if ! docker ps --format '{{.Names}}' | grep -q "^qdrant\$"; then
-            docker start qdrant 2>/dev/null || \
+          if ! docker ps --format '{{.Names}}' | grep -q "^\${QDRANT_CONTAINER}\$"; then
+            docker start "\${QDRANT_CONTAINER}" 2>/dev/null || \
             docker run -d \
-              --name qdrant \
+              --name "\${QDRANT_CONTAINER}" \
               --restart unless-stopped \
               --network aqlliagronom-network \
-              -p 6334:6334 \
               -v qdrant_data:/qdrant/storage \
               qdrant/qdrant:v1.13.0
           fi
-          sleep 5
+          sleep 3
           echo "Qdrant ready."
 
           # ── API ──────────────────────────────────────────────────────────────
@@ -260,14 +270,15 @@ jobs:
             -p 8080:8080 \
             -e ASPNETCORE_ENVIRONMENT=Staging \
             -e ASPNETCORE_URLS=http://+:8080 \
-            -e "ConnectionStrings__PostgreSQL=\${DB_CONN}" \
-            -e "Redis__ConnectionString=\${REDIS_CONN}" \
+            -e "ConnectionStrings__PostgreSQL=\${DB_CONN_DOCKER}" \
+            -e "Redis__ConnectionString=\${REDIS_CONN_DOCKER}" \
             -e "Jwt__SecretKey=\${JWT_SECRET}" \
             -e "Claude__ApiKey=\${CLAUDE_KEY}" \
             -e "Embedding__ApiKey=\${VOYAGE_KEY}" \
             -e "Telegram__BotToken=\${TG_TOKEN}" \
             -e "Telegram__WebhookUrl=\${TG_WEBHOOK}" \
             -e "Telegram__UseWebhook=true" \
+            -e "Qdrant__Host=\${QDRANT_CONTAINER}" \
             -e "Qdrant__ApiKey=\${QDRANT_KEY}" \
             -v /opt/aqlliagronom/staging/logs:/app/logs \
             "\${IMAGE_FULL}"
@@ -404,6 +415,15 @@ jobs:
 
           LIVE_CONTAINER="aqlliagronom-api"
           GREEN_CONTAINER="aqlliagronom-api-green"
+          PG_CONTAINER="postgres"
+          REDIS_CONTAINER="redis"
+          QDRANT_CONTAINER="qdrant"
+
+          # Rewrite host in connection strings to Docker container names
+          get_kv() { echo "\$1" | tr ';' '\n' | grep -i "^\$2=" | cut -d= -f2-; }
+          REDIS_PORT=\$(echo "\${REDIS_CONN}" | cut -d: -f2 | cut -d, -f1); REDIS_PORT=\${REDIS_PORT:-6379}
+          DB_CONN_DOCKER=\$(echo "\${DB_CONN}" | sed "s/Host=[^;]*/Host=\${PG_CONTAINER}/I")
+          REDIS_CONN_DOCKER="\${REDIS_CONTAINER}:\${REDIS_PORT}\$(echo "\${REDIS_CONN}" | grep -oP ',.*' || echo '')"
 
           echo "==> Logging in to GHCR..."
           echo "\${GHCR_TOKEN}" | docker login ghcr.io -u "\${GHCR_USER}" --password-stdin
@@ -425,14 +445,15 @@ jobs:
             -p 8081:8080 \
             -e ASPNETCORE_ENVIRONMENT=Production \
             -e ASPNETCORE_URLS=http://+:8080 \
-            -e "ConnectionStrings__PostgreSQL=\${DB_CONN}" \
-            -e "Redis__ConnectionString=\${REDIS_CONN}" \
+            -e "ConnectionStrings__PostgreSQL=\${DB_CONN_DOCKER}" \
+            -e "Redis__ConnectionString=\${REDIS_CONN_DOCKER}" \
             -e "Jwt__SecretKey=\${JWT_SECRET}" \
             -e "Claude__ApiKey=\${CLAUDE_KEY}" \
             -e "Embedding__ApiKey=\${VOYAGE_KEY}" \
             -e "Telegram__BotToken=\${TG_TOKEN}" \
             -e "Telegram__WebhookUrl=\${TG_WEBHOOK}" \
             -e "Telegram__UseWebhook=true" \
+            -e "Qdrant__Host=\${QDRANT_CONTAINER}" \
             -e "Qdrant__ApiKey=\${QDRANT_KEY}" \
             -v /opt/aqlliagronom/prod/logs:/app/logs \
             "\${FULL_IMAGE}"
@@ -468,14 +489,15 @@ jobs:
             -p 8080:8080 \
             -e ASPNETCORE_ENVIRONMENT=Production \
             -e ASPNETCORE_URLS=http://+:8080 \
-            -e "ConnectionStrings__PostgreSQL=\${DB_CONN}" \
-            -e "Redis__ConnectionString=\${REDIS_CONN}" \
+            -e "ConnectionStrings__PostgreSQL=\${DB_CONN_DOCKER}" \
+            -e "Redis__ConnectionString=\${REDIS_CONN_DOCKER}" \
             -e "Jwt__SecretKey=\${JWT_SECRET}" \
             -e "Claude__ApiKey=\${CLAUDE_KEY}" \
             -e "Embedding__ApiKey=\${VOYAGE_KEY}" \
             -e "Telegram__BotToken=\${TG_TOKEN}" \
             -e "Telegram__WebhookUrl=\${TG_WEBHOOK}" \
             -e "Telegram__UseWebhook=true" \
+            -e "Qdrant__Host=\${QDRANT_CONTAINER}" \
             -e "Qdrant__ApiKey=\${QDRANT_KEY}" \
             -v /opt/aqlliagronom/prod/logs:/app/logs \
             "\${FULL_IMAGE}"
