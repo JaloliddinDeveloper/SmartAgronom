@@ -304,6 +304,8 @@ jobs:
           ENDSSH
 
   # ── 3. Smoke Test Staging ─────────────────────────────────────────────────────
+  # Tests against http://<host>:8080 (direct Docker port) — no nginx/TLS needed.
+  # Switch to https://staging-api.aqlliagronom.uz once a reverse proxy is set up.
   smoke-test-staging:
     name: Smoke Test — Staging
     runs-on: ubuntu-latest
@@ -311,10 +313,12 @@ jobs:
 
     steps:
       - name: Health check with retries
+        env:
+          STAGING_HOST: ${{ secrets.STAGING_HOST }}
         run: |
+          BASE="http://${STAGING_HOST}:8080"
           for i in $(seq 1 6); do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-              https://staging-api.aqlliagronom.uz/health || echo "000")
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${BASE}/health/live")
             if [ "$STATUS" = "200" ]; then
               echo "Health check passed (HTTP $STATUS)"
               break
@@ -328,9 +332,12 @@ jobs:
           done
 
       - name: API smoke test
+        env:
+          STAGING_HOST: ${{ secrets.STAGING_HOST }}
         run: |
+          BASE="http://${STAGING_HOST}:8080"
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-            -X POST https://staging-api.aqlliagronom.uz/api/v1/auth/register \
+            -X POST "${BASE}/api/v1/auth/register" \
             -H "Content-Type: application/json" \
             -d '{"fullName":"","phone":"","password":""}')
           echo "Auth endpoint → HTTP $STATUS"
