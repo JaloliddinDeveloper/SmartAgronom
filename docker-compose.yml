@@ -1,8 +1,9 @@
-version: '3.9'
+# Docker Compose — Full local development & production stack
+# Usage: docker compose --env-file .env up -d
 
 services:
 
-  # ── PostgreSQL ──────────────────────────────────────────────────────────────
+  # ── PostgreSQL ───────────────────────────────────────────────────────────────
   postgres:
     image: postgres:16-alpine
     container_name: aqlliagronom-postgres
@@ -15,29 +16,40 @@ services:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
+    networks:
+      - aqlliagronom-network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d aqlliagronom"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 10s
 
-  # ── Redis ───────────────────────────────────────────────────────────────────
+  # ── Redis ────────────────────────────────────────────────────────────────────
   redis:
     image: redis:7-alpine
     container_name: aqlliagronom-redis
     restart: unless-stopped
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redis_secret}
+    environment:
+      # Exposed so health check can read it via $$REDIS_PASSWORD
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-redis_secret}
+    command: >
+      sh -c "redis-server --appendonly yes --requirepass $$REDIS_PASSWORD"
     volumes:
       - redis_data:/data
     ports:
       - "6379:6379"
+    networks:
+      - aqlliagronom-network
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      # Use $$REDIS_PASSWORD — $$ is escaped to single $ inside the container shell
+      test: ["CMD-SHELL", "redis-cli -a $$REDIS_PASSWORD ping | grep -q PONG"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 10s
 
-  # ── Qdrant Vector Database ──────────────────────────────────────────────────
+  # ── Qdrant Vector Database ───────────────────────────────────────────────────
   qdrant:
     image: qdrant/qdrant:v1.13.0
     container_name: aqlliagronom-qdrant
@@ -47,17 +59,23 @@ services:
     ports:
       - "6333:6333"   # REST API
       - "6334:6334"   # gRPC
+    networks:
+      - aqlliagronom-network
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost:6333/health || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:6333/healthz | grep -q ok"]
       interval: 15s
       timeout: 10s
       retries: 5
+      start_period: 20s
 
-  # ── AqlliAgronom API ────────────────────────────────────────────────────────
+  # ── AqlliAgronom API ─────────────────────────────────────────────────────────
   api:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        BUILD_VERSION: local
+        BUILD_REVISION: dev
     container_name: aqlliagronom-api
     restart: unless-stopped
     depends_on:
@@ -70,26 +88,30 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:8080
+      - DOTNET_RUNNING_IN_CONTAINER=true
       - ConnectionStrings__PostgreSQL=Host=postgres;Port=5432;Database=aqlliagronom;Username=postgres;Password=${POSTGRES_PASSWORD:-postgres}
       - Redis__ConnectionString=redis:6379,password=${REDIS_PASSWORD:-redis_secret}
       - Qdrant__Host=qdrant
       - Qdrant__Port=6334
+      - Qdrant__ApiKey=${QDRANT_API_KEY:-}
       - Jwt__SecretKey=${JWT_SECRET_KEY}
       - Claude__ApiKey=${CLAUDE_API_KEY}
       - Embedding__ApiKey=${VOYAGE_API_KEY}
-      - Telegram__BotToken=${TELEGRAM_BOT_TOKEN}
-      - Telegram__WebhookUrl=${TELEGRAM_WEBHOOK_URL}
-      - Telegram__UseWebhook=true
+      - Telegram__BotToken=${TELEGRAM_BOT_TOKEN:-}
+      - Telegram__WebhookUrl=${TELEGRAM_WEBHOOK_URL:-}
+      - Telegram__UseWebhook=${TELEGRAM_USE_WEBHOOK:-false}
     ports:
       - "8080:8080"
     volumes:
       - api_logs:/app/logs
+    networks:
+      - aqlliagronom-network
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost:8080/health/live || exit 1"]
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/health/live || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 60s
+      start_period: 90s
 
 volumes:
   postgres_data:
@@ -102,5 +124,6 @@ volumes:
     driver: local
 
 networks:
-  default:
+  aqlliagronom-network:
     name: aqlliagronom-network
+    driver: bridge

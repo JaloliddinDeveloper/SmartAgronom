@@ -1,17 +1,36 @@
-name: CD — Deploy to Production
+name: CD — Build, Push & Deploy
 
 on:
   push:
     branches: [master]
     tags:
       - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment target'
+        required: true
+        default: staging
+        type: choice
+        options: [staging, production]
+      image_tag:
+        description: 'Image tag to deploy (leave empty to use latest build)'
+        required: false
+        default: ''
 
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository_owner }}/aqlliagronom-api
+  DOTNET_NOLOGO: 'true'
+  DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
+
+# Prevent concurrent deploys to the same environment
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false   # Never cancel in-progress deploys
 
 jobs:
-  # ── 1. Build & Push Docker Image ───────────────────────────────────────────
+  # ── 1. Build & Push Docker Image ─────────────────────────────────────────────
   build-and-push:
     name: Build & Push Docker Image
     runs-on: ubuntu-latest
@@ -20,12 +39,15 @@ jobs:
       packages: write
 
     outputs:
-      image_tag: ${{ steps.meta.outputs.tags }}
       image_version: ${{ steps.meta.outputs.version }}
+      image_tags: ${{ steps.meta.outputs.tags }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Set up QEMU (multi-platform builds)
+        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -37,29 +59,41 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract Docker metadata (tags, labels)
+      - name: Extract Docker metadata (tags & labels)
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
+            # Semver tags on tagged releases: v1.2.3 → 1.2.3 and 1.2
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=sha,prefix=sha-
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            # Short commit SHA (always included)
+            type=sha,prefix=sha-,format=short
+            # "latest" only on tagged releases (e.g. v1.0.0)
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+            # "edge" on master branch pushes (latest development build)
+            type=raw,value=edge,enable=${{ github.ref == 'refs/heads/master' }}
+          labels: |
+            org.opencontainers.image.title=AqlliAgronom API
+            org.opencontainers.image.description=AI-powered smart agriculture assistant backend
+            org.opencontainers.image.vendor=AqlliAgronom
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          platforms: linux/amd64,linux/arm64
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          platforms: linux/amd64,linux/arm64
+          build-args: |
+            BUILD_VERSION=${{ steps.meta.outputs.version }}
+            BUILD_REVISION=${{ github.sha }}
 
-  # ── 2. Deploy to Staging ────────────────────────────────────────────────────
+  # ── 2. Deploy to Staging ──────────────────────────────────────────────────────
   deploy-staging:
     name: Deploy to Staging
     runs-on: ubuntu-latest
@@ -68,161 +102,306 @@ jobs:
       name: staging
       url: https://staging-api.aqlliagronom.uz
 
+    # Run on master push, tag push, or manual staging trigger
+    if: |
+      github.ref == 'refs/heads/master' ||
+      startsWith(github.ref, 'refs/tags/v') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging')
+
     steps:
+      - name: Resolve image tag for staging
+        id: resolve
+        run: |
+          MANUAL_TAG="${{ github.event.inputs.image_tag }}"
+          if [ -n "$MANUAL_TAG" ]; then
+            echo "tag=${MANUAL_TAG}" >> "$GITHUB_OUTPUT"
+          elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            echo "tag=${{ needs.build-and-push.outputs.image_version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=edge" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Deploy to staging server via SSH
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          IMAGE_FULL: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.resolve.outputs.tag }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
+          DB_CONN: ${{ secrets.STAGING_DB_CONNECTION }}
+          REDIS_CONN: ${{ secrets.STAGING_REDIS_CONNECTION }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET_KEY }}
+          CLAUDE_KEY: ${{ secrets.CLAUDE_API_KEY }}
+          VOYAGE_KEY: ${{ secrets.VOYAGE_API_KEY }}
+          TG_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TG_WEBHOOK: ${{ secrets.STAGING_WEBHOOK_URL }}
+          QDRANT_KEY: ${{ secrets.QDRANT_API_KEY }}
         with:
           host: ${{ secrets.STAGING_HOST }}
           username: ${{ secrets.STAGING_USER }}
           key: ${{ secrets.STAGING_SSH_KEY }}
+          envs: IMAGE_FULL,GHCR_TOKEN,GHCR_USER,DB_CONN,REDIS_CONN,JWT_SECRET,CLAUDE_KEY,VOYAGE_KEY,TG_TOKEN,TG_WEBHOOK,QDRANT_KEY
           script: |
-            set -e
-            echo "Pulling new image..."
-            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            set -euo pipefail
 
-            echo "Stopping old container..."
-            docker stop aqlliagronom-api || true
-            docker rm aqlliagronom-api || true
+            echo "==> [Staging] Logging in to GHCR..."
+            echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USER}" --password-stdin
 
-            echo "Starting new container..."
+            echo "==> [Staging] Pulling image: ${IMAGE_FULL}"
+            docker pull "${IMAGE_FULL}"
+
+            echo "==> [Staging] Stopping old container..."
+            docker stop aqlliagronom-staging 2>/dev/null || true
+            docker rm   aqlliagronom-staging 2>/dev/null || true
+
+            echo "==> [Staging] Starting new container..."
             docker run -d \
-              --name aqlliagronom-api \
+              --name aqlliagronom-staging \
               --restart unless-stopped \
               --network aqlliagronom-network \
               -p 8080:8080 \
               -e ASPNETCORE_ENVIRONMENT=Staging \
-              -e ConnectionStrings__PostgreSQL="${{ secrets.STAGING_DB_CONNECTION }}" \
-              -e Redis__ConnectionString="${{ secrets.STAGING_REDIS_CONNECTION }}" \
-              -e Jwt__SecretKey="${{ secrets.JWT_SECRET_KEY }}" \
-              -e Claude__ApiKey="${{ secrets.CLAUDE_API_KEY }}" \
-              -e Embedding__ApiKey="${{ secrets.VOYAGE_API_KEY }}" \
-              -e Telegram__BotToken="${{ secrets.TELEGRAM_BOT_TOKEN }}" \
-              -e Telegram__WebhookUrl="${{ secrets.STAGING_WEBHOOK_URL }}" \
-              -e Telegram__UseWebhook=true \
-              -v /opt/aqlliagronom/logs:/app/logs \
-              ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+              -e ASPNETCORE_URLS=http://+:8080 \
+              -e "ConnectionStrings__PostgreSQL=${DB_CONN}" \
+              -e "Redis__ConnectionString=${REDIS_CONN}" \
+              -e "Jwt__SecretKey=${JWT_SECRET}" \
+              -e "Claude__ApiKey=${CLAUDE_KEY}" \
+              -e "Embedding__ApiKey=${VOYAGE_KEY}" \
+              -e "Telegram__BotToken=${TG_TOKEN}" \
+              -e "Telegram__WebhookUrl=${TG_WEBHOOK}" \
+              -e "Telegram__UseWebhook=true" \
+              -e "Qdrant__ApiKey=${QDRANT_KEY}" \
+              -v /opt/aqlliagronom/staging/logs:/app/logs \
+              "${IMAGE_FULL}"
 
-            echo "Waiting for health check..."
-            sleep 10
-            curl -f http://localhost:8080/health/live || exit 1
-            echo "Staging deploy successful!"
+            echo "==> [Staging] Waiting for health check (up to 90s)..."
+            for i in $(seq 1 18); do
+              if curl -sf http://localhost:8080/health/live > /dev/null 2>&1; then
+                echo "==> [Staging] Healthy after attempt ${i}. Deploy complete!"
+                break
+              fi
+              if [ "$i" -eq 18 ]; then
+                echo "ERROR: Health check failed after 90s — rolling back"
+                docker stop aqlliagronom-staging 2>/dev/null || true
+                docker rm   aqlliagronom-staging 2>/dev/null || true
+                exit 1
+              fi
+              echo "    Attempt ${i}/18 — not ready yet, waiting 5s..."
+              sleep 5
+            done
 
-      - name: Run DB migrations on staging
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.STAGING_HOST }}
-          username: ${{ secrets.STAGING_USER }}
-          key: ${{ secrets.STAGING_SSH_KEY }}
-          script: |
-            docker exec aqlliagronom-api \
-              dotnet AqlliAgronom.API.dll migrate || true
+            echo "==> [Staging] Cleaning up dangling images..."
+            docker image prune -f || true
 
-  # ── 3. Smoke Test Staging ───────────────────────────────────────────────────
+  # ── 3. Smoke Test Staging ─────────────────────────────────────────────────────
   smoke-test-staging:
-    name: Smoke Test Staging
+    name: Smoke Test — Staging
     runs-on: ubuntu-latest
     needs: deploy-staging
 
     steps:
-      - name: Health check
+      - name: Health endpoint check (with retries)
         run: |
-          curl -f https://staging-api.aqlliagronom.uz/health || exit 1
-          echo "Health check passed"
+          BASE_URL="https://staging-api.aqlliagronom.uz"
+          echo "Checking ${BASE_URL}/health ..."
+          for i in $(seq 1 6); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${BASE_URL}/health" || echo "000")
+            if [ "$STATUS" = "200" ]; then
+              echo "Health check passed (HTTP $STATUS) on attempt ${i}"
+              break
+            fi
+            if [ "$i" -eq 6 ]; then
+              echo "ERROR: Health check returned HTTP $STATUS after 6 attempts (60s total)"
+              exit 1
+            fi
+            echo "Attempt ${i}/6 returned HTTP $STATUS — retrying in 10s..."
+            sleep 10
+          done
 
-      - name: API smoke test
+      - name: API validation smoke test
         run: |
-          # Test registration endpoint responds
+          BASE_URL="https://staging-api.aqlliagronom.uz"
+          echo "Testing auth endpoint (expect HTTP 422 on empty payload)..."
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-            -X POST https://staging-api.aqlliagronom.uz/api/v1/auth/register \
+            -X POST "${BASE_URL}/api/v1/auth/register" \
             -H "Content-Type: application/json" \
             -d '{"fullName":"","phone":"","password":""}')
-          echo "Registration endpoint returned: $STATUS"
-          # Expect 422 (validation error) — proves API is alive
-          [ "$STATUS" = "422" ] || exit 1
-          echo "Smoke tests passed!"
+          echo "Auth endpoint returned: HTTP $STATUS"
+          if [ "$STATUS" != "422" ]; then
+            echo "ERROR: Expected HTTP 422 (validation error), got $STATUS"
+            exit 1
+          fi
+          echo "All smoke tests passed!"
 
-  # ── 4. Deploy to Production ─────────────────────────────────────────────────
+  # ── 4. Deploy to Production (Blue-Green) ─────────────────────────────────────
   deploy-production:
     name: Deploy to Production
     runs-on: ubuntu-latest
-    needs: smoke-test-staging
+    needs: [build-and-push, smoke-test-staging]
     environment:
       name: production
       url: https://api.aqlliagronom.uz
 
-    # Only deploy tagged releases to production
-    if: startsWith(github.ref, 'refs/tags/v')
+    # Only deploy to production on tagged releases or explicit manual trigger
+    if: |
+      startsWith(github.ref, 'refs/tags/v') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production')
 
     steps:
-      - name: Deploy to production server via SSH
-        uses: appleboy/ssh-action@v1.0.3
+      - name: Resolve production image tag
+        id: resolve
+        run: |
+          MANUAL_TAG="${{ github.event.inputs.image_tag }}"
+          if [ -n "$MANUAL_TAG" ]; then
+            echo "tag=${MANUAL_TAG}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${{ needs.build-and-push.outputs.image_version }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Deploy to production via SSH (Blue-Green)
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          IMAGE_TAG: ${{ steps.resolve.outputs.tag }}
+          REGISTRY: ${{ env.REGISTRY }}
+          IMAGE_NAME: ${{ env.IMAGE_NAME }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
+          DB_CONN: ${{ secrets.PROD_DB_CONNECTION }}
+          REDIS_CONN: ${{ secrets.PROD_REDIS_CONNECTION }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET_KEY }}
+          CLAUDE_KEY: ${{ secrets.CLAUDE_API_KEY }}
+          VOYAGE_KEY: ${{ secrets.VOYAGE_API_KEY }}
+          TG_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TG_WEBHOOK: ${{ secrets.PROD_WEBHOOK_URL }}
+          QDRANT_KEY: ${{ secrets.QDRANT_API_KEY }}
         with:
           host: ${{ secrets.PROD_HOST }}
           username: ${{ secrets.PROD_USER }}
           key: ${{ secrets.PROD_SSH_KEY }}
+          envs: IMAGE_TAG,REGISTRY,IMAGE_NAME,GHCR_TOKEN,GHCR_USER,DB_CONN,REDIS_CONN,JWT_SECRET,CLAUDE_KEY,VOYAGE_KEY,TG_TOKEN,TG_WEBHOOK,QDRANT_KEY
           script: |
-            set -e
-            IMAGE_TAG=${{ needs.build-and-push.outputs.image_version }}
+            set -euo pipefail
 
-            echo "Deploying version: $IMAGE_TAG"
-            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$IMAGE_TAG
+            FULL_IMAGE="${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}"
+            LIVE_CONTAINER="aqlliagronom-api"
+            GREEN_CONTAINER="aqlliagronom-api-green"
 
-            # Blue-Green: start new container on port 8081
-            docker stop aqlliagronom-api-new || true
-            docker rm aqlliagronom-api-new || true
+            echo "==> [Prod] Logging in to GHCR..."
+            echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USER}" --password-stdin
+
+            echo "==> [Prod] Pulling image: ${FULL_IMAGE}"
+            docker pull "${FULL_IMAGE}"
+
+            # ── Blue-Green: validate new (Green) before switching ──────────────
+            echo "==> [Prod] Starting Green container on port 8081 for pre-validation..."
+            docker stop "${GREEN_CONTAINER}" 2>/dev/null || true
+            docker rm   "${GREEN_CONTAINER}" 2>/dev/null || true
 
             docker run -d \
-              --name aqlliagronom-api-new \
+              --name "${GREEN_CONTAINER}" \
               --network aqlliagronom-network \
               -p 8081:8080 \
               -e ASPNETCORE_ENVIRONMENT=Production \
-              -e ConnectionStrings__PostgreSQL="${{ secrets.PROD_DB_CONNECTION }}" \
-              -e Redis__ConnectionString="${{ secrets.PROD_REDIS_CONNECTION }}" \
-              -e Jwt__SecretKey="${{ secrets.JWT_SECRET_KEY }}" \
-              -e Claude__ApiKey="${{ secrets.CLAUDE_API_KEY }}" \
-              -e Embedding__ApiKey="${{ secrets.VOYAGE_API_KEY }}" \
-              -e Telegram__BotToken="${{ secrets.TELEGRAM_BOT_TOKEN }}" \
-              -e Telegram__WebhookUrl="${{ secrets.PROD_WEBHOOK_URL }}" \
-              -e Telegram__UseWebhook=true \
-              -v /opt/aqlliagronom/logs:/app/logs \
-              ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$IMAGE_TAG
+              -e ASPNETCORE_URLS=http://+:8080 \
+              -e "ConnectionStrings__PostgreSQL=${DB_CONN}" \
+              -e "Redis__ConnectionString=${REDIS_CONN}" \
+              -e "Jwt__SecretKey=${JWT_SECRET}" \
+              -e "Claude__ApiKey=${CLAUDE_KEY}" \
+              -e "Embedding__ApiKey=${VOYAGE_KEY}" \
+              -e "Telegram__BotToken=${TG_TOKEN}" \
+              -e "Telegram__WebhookUrl=${TG_WEBHOOK}" \
+              -e "Telegram__UseWebhook=true" \
+              -e "Qdrant__ApiKey=${QDRANT_KEY}" \
+              -v /opt/aqlliagronom/prod/logs:/app/logs \
+              "${FULL_IMAGE}"
 
-            # Wait and health check new container
-            sleep 15
-            curl -f http://localhost:8081/health/live || { \
-              docker stop aqlliagronom-api-new; \
-              echo "New container health check FAILED — rollback!"; \
-              exit 1; \
-            }
+            echo "==> [Prod] Validating Green container health (up to 120s)..."
+            GREEN_HEALTHY=false
+            for i in $(seq 1 24); do
+              if curl -sf http://localhost:8081/health/live > /dev/null 2>&1; then
+                echo "==> Green container healthy on attempt ${i}"
+                GREEN_HEALTHY=true
+                break
+              fi
+              echo "    Attempt ${i}/24 — not ready, waiting 5s..."
+              sleep 5
+            done
 
-            # Switch: stop old, rename new to primary
-            docker stop aqlliagronom-api || true
-            docker rm aqlliagronom-api || true
-            docker rename aqlliagronom-api-new aqlliagronom-api
-            docker update --restart unless-stopped aqlliagronom-api
+            if [ "$GREEN_HEALTHY" = "false" ]; then
+              echo "ERROR: Green container failed health check — aborting, Blue container untouched"
+              docker stop "${GREEN_CONTAINER}" 2>/dev/null || true
+              docker rm   "${GREEN_CONTAINER}" 2>/dev/null || true
+              exit 1
+            fi
 
-            echo "Production deploy successful! Version: $IMAGE_TAG"
+            # ── Green is healthy: stop it, restart it on production port ──────
+            echo "==> [Prod] Green validated. Stopping Green (temporary port)..."
+            docker stop "${GREEN_CONTAINER}"
+            docker rm   "${GREEN_CONTAINER}"
 
-      - name: Notify team on success
+            echo "==> [Prod] Stopping Blue container (brief downtime)..."
+            docker stop "${LIVE_CONTAINER}" 2>/dev/null || true
+            docker rm   "${LIVE_CONTAINER}" 2>/dev/null || true
+
+            echo "==> [Prod] Starting new container on production port 8080..."
+            docker run -d \
+              --name "${LIVE_CONTAINER}" \
+              --restart unless-stopped \
+              --network aqlliagronom-network \
+              -p 8080:8080 \
+              -e ASPNETCORE_ENVIRONMENT=Production \
+              -e ASPNETCORE_URLS=http://+:8080 \
+              -e "ConnectionStrings__PostgreSQL=${DB_CONN}" \
+              -e "Redis__ConnectionString=${REDIS_CONN}" \
+              -e "Jwt__SecretKey=${JWT_SECRET}" \
+              -e "Claude__ApiKey=${CLAUDE_KEY}" \
+              -e "Embedding__ApiKey=${VOYAGE_KEY}" \
+              -e "Telegram__BotToken=${TG_TOKEN}" \
+              -e "Telegram__WebhookUrl=${TG_WEBHOOK}" \
+              -e "Telegram__UseWebhook=true" \
+              -e "Qdrant__ApiKey=${QDRANT_KEY}" \
+              -v /opt/aqlliagronom/prod/logs:/app/logs \
+              "${FULL_IMAGE}"
+
+            echo "==> [Prod] Final health check on port 8080..."
+            for i in $(seq 1 12); do
+              if curl -sf http://localhost:8080/health/live > /dev/null 2>&1; then
+                echo "==> Production deploy complete! Version: ${IMAGE_TAG}"
+                break
+              fi
+              if [ "$i" -eq 12 ]; then
+                echo "ERROR: Final health check failed — manual intervention required"
+                exit 1
+              fi
+              echo "    Attempt ${i}/12 — waiting 5s..."
+              sleep 5
+            done
+
+            echo "==> [Prod] Cleaning up dangling images..."
+            docker image prune -f || true
+
+      - name: Notify team — deploy success
         if: success()
-        uses: appleboy/telegram-action@master
+        uses: appleboy/telegram-action@v1.0.0
         with:
           to: ${{ secrets.TELEGRAM_DEPLOY_CHAT_ID }}
           token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          format: markdown
           message: |
-            ✅ *AqlliAgronom AI* deployed to PRODUCTION
+            ✅ *AqlliAgronom AI* — Production Deploy SUCCESS
             Version: `${{ needs.build-and-push.outputs.image_version }}`
-            By: ${{ github.actor }}
-            Commit: ${{ github.sha }}
+            By: `${{ github.actor }}`
+            Commit: `${{ github.sha }}`
+            Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
-      - name: Notify team on failure
+      - name: Notify team — deploy failure
         if: failure()
-        uses: appleboy/telegram-action@master
+        uses: appleboy/telegram-action@v1.0.0
         with:
           to: ${{ secrets.TELEGRAM_DEPLOY_CHAT_ID }}
           token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          format: markdown
           message: |
-            ❌ *AqlliAgronom AI* deploy FAILED
-            Branch: `${{ github.ref }}`
-            By: ${{ github.actor }}
-            Check: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            ❌ *AqlliAgronom AI* — Production Deploy FAILED
+            Tag: `${{ github.ref }}`
+            By: `${{ github.actor }}`
+            Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}

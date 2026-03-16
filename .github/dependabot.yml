@@ -1,0 +1,38 @@
+version: 2
+
+updates:
+  # ── NuGet packages ────────────────────────────────────────────────────────────
+  - package-ecosystem: nuget
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Asia/Tashkent
+    open-pull-requests-limit: 10
+    groups:
+      # Group minor/patch updates to reduce PR noise
+      microsoft-extensions:
+        patterns:
+          - "Microsoft.Extensions.*"
+          - "Microsoft.AspNetCore.*"
+          - "Microsoft.EntityFrameworkCore.*"
+      serilog:
+        patterns:
+          - "Serilog*"
+      testing:
+        patterns:
+          - "xunit*"
+          - "FluentAssertions*"
+          - "Moq*"
+          - "NSubstitute*"
+
+  # ── GitHub Actions ────────────────────────────────────────────────────────────
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Asia/Tashkent
+    open-pull-requests-limit: 5

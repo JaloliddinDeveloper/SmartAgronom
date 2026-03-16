@@ -10,7 +10,8 @@
       "Bash(powershell.exe -Command \"\\\\$assembly = [System.Reflection.Assembly]::LoadFile\\('C:/Users/USER/.nuget/packages/anthropic.sdk/4.0.0/lib/net8.0/Anthropic.SDK.dll'\\); \\\\$assembly.GetTypes\\(\\) | Select FullName | Sort-Object FullName\" 2>&1 | head -60)",
       "Bash(grep -oP \"P:Qdrant\\\\.[A-Za-z.]+\\\\.[A-Za-z]+\" \"/c/Users/USER/.nuget/packages/qdrant.client/1.9.0/lib/net6.0/Qdrant.Client.xml\" 2>/dev/null | sort -u | head -40; grep -oP \"M:Qdrant\\\\.[A-Za-z.]+\\\\.[A-Za-z]+\" \"/c/Users/USER/.nuget/packages/qdrant.client/1.9.0/lib/net6.0/Qdrant.Client.xml\" 2>/dev/null | sort -u | head -40)",
       "Bash(grep -oP \"M:Qdrant\\\\.Client\\\\.QdrantClient\\\\.[A-Za-z]+\" \"/c/Users/USER/.nuget/packages/qdrant.client/1.9.0/lib/net6.0/Qdrant.Client.xml\" 2>/dev/null | sort -u)",
-      "Bash(grep -oP \"T:Telegram\\\\.[A-Za-z.]+InputFile[A-Za-z.]*\" \"/c/Users/USER/.nuget/packages/telegram.bot/22.0.0/lib/net6.0/Telegram.Bot.xml\" 2>/dev/null | head -10; grep \"InputFile\\\\|FromUri\" \"/c/Users/USER/.nuget/packages/telegram.bot/22.0.0/lib/net6.0/Telegram.Bot.xml\" | grep \"member name=\" | head -10)"
+      "Bash(grep -oP \"T:Telegram\\\\.[A-Za-z.]+InputFile[A-Za-z.]*\" \"/c/Users/USER/.nuget/packages/telegram.bot/22.0.0/lib/net6.0/Telegram.Bot.xml\" 2>/dev/null | head -10; grep \"InputFile\\\\|FromUri\" \"/c/Users/USER/.nuget/packages/telegram.bot/22.0.0/lib/net6.0/Telegram.Bot.xml\" | grep \"member name=\" | head -10)",
+      "Bash(find:*)"
     ]
   }
 }

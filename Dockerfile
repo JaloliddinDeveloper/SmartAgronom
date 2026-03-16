@@ -1,53 +1,76 @@
-# ── Stage 1: Build ────────────────────────────────────────────────────────────
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+# ── Build Arguments ───────────────────────────────────────────────────────────
+ARG BUILD_VERSION=0.0.0
+ARG BUILD_REVISION=local
+
+# ── Stage 1: Restore ──────────────────────────────────────────────────────────
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS restore
 WORKDIR /src
 
-# Copy project files for layer caching
-COPY ["src/AqlliAgronom.Domain/AqlliAgronom.Domain.csproj", "AqlliAgronom.Domain/"]
-COPY ["src/AqlliAgronom.Application/AqlliAgronom.Application.csproj", "AqlliAgronom.Application/"]
-COPY ["src/AqlliAgronom.Infrastructure/AqlliAgronom.Infrastructure.csproj", "AqlliAgronom.Infrastructure/"]
-COPY ["src/AqlliAgronom.API/AqlliAgronom.API.csproj", "AqlliAgronom.API/"]
+# Copy project files first for optimal layer caching
+COPY ["src/AqlliAgronom.Domain/AqlliAgronom.Domain.csproj",         "AqlliAgronom.Domain/"]
+COPY ["src/AqlliAgronom.Application/AqlliAgronom.Application.csproj","AqlliAgronom.Application/"]
+COPY ["src/AqlliAgronom.Infrastructure/AqlliAgronom.Infrastructure.csproj","AqlliAgronom.Infrastructure/"]
+COPY ["src/AqlliAgronom.API/AqlliAgronom.API.csproj",               "AqlliAgronom.API/"]
 
-# Restore dependencies
 RUN dotnet restore "AqlliAgronom.API/AqlliAgronom.API.csproj"
 
-# Copy all source
+# ── Stage 2: Build ────────────────────────────────────────────────────────────
+FROM restore AS build
+
 COPY src/ .
 
-# Build
-RUN dotnet build "AqlliAgronom.API/AqlliAgronom.API.csproj" -c Release -o /app/build --no-restore
-
-# ── Stage 2: Publish ──────────────────────────────────────────────────────────
-FROM build AS publish
-RUN dotnet publish "AqlliAgronom.API/AqlliAgronom.API.csproj" \
-    -c Release \
-    -o /app/publish \
+RUN dotnet build "AqlliAgronom.API/AqlliAgronom.API.csproj" \
+    --configuration Release \
     --no-restore \
+    -o /app/build
+
+# ── Stage 3: Publish ──────────────────────────────────────────────────────────
+FROM build AS publish
+
+RUN dotnet publish "AqlliAgronom.API/AqlliAgronom.API.csproj" \
+    --configuration Release \
+    --no-build \
+    --no-restore \
+    -o /app/publish \
     /p:UseAppHost=false
 
-# ── Stage 3: Runtime ──────────────────────────────────────────────────────────
+# ── Stage 4: Runtime ──────────────────────────────────────────────────────────
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
+
+ARG BUILD_VERSION
+ARG BUILD_REVISION
+
+LABEL org.opencontainers.image.title="AqlliAgronom API" \
+      org.opencontainers.image.description="AI-powered smart agriculture assistant backend" \
+      org.opencontainers.image.version="${BUILD_VERSION}" \
+      org.opencontainers.image.revision="${BUILD_REVISION}" \
+      org.opencontainers.image.vendor="AqlliAgronom"
+
 WORKDIR /app
 
-# Security: run as non-root
-RUN groupadd -r appgroup && useradd -r -g appgroup appuser
+# Security: install curl for health checks, then clean apt cache in same layer
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install curl for health checks
-RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
+# Security: run as non-root user
+RUN groupadd -r appgroup && useradd -r -g appgroup -s /sbin/nologin appuser
 
 COPY --from=publish /app/publish .
 
-# Create logs directory
+# Create logs directory with correct ownership
 RUN mkdir -p /app/logs && chown -R appuser:appgroup /app
 
 USER appuser
 
 EXPOSE 8080
 
-ENV ASPNETCORE_URLS=http://+:8080
-ENV ASPNETCORE_ENVIRONMENT=Production
+ENV ASPNETCORE_URLS=http://+:8080 \
+    ASPNETCORE_ENVIRONMENT=Production \
+    DOTNET_RUNNING_IN_CONTAINER=true \
+    DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:8080/health/live || exit 1
+HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=3 \
+    CMD curl -sf http://localhost:8080/health/live || exit 1
 
 ENTRYPOINT ["dotnet", "AqlliAgronom.API.dll"]
