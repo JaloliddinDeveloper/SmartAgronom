@@ -30,7 +30,7 @@ public class KnowledgeEntryConfiguration : IEntityTypeConfiguration<KnowledgeEnt
         // Tags stored as PostgreSQL text array
         builder.Property(e => e.Tags)
             .HasColumnType("text[]")
-            .HasDefaultValue(Array.Empty<string>());
+            .HasDefaultValueSql("'{}'");
 
         // Qdrant vector ID
         builder.HasIndex(e => e.VectorId)

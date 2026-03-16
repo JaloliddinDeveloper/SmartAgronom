@@ -291,7 +291,7 @@ jobs:
             fi
             if [ "\$i" -eq 24 ]; then
               echo "ERROR: Health check failed after 120s. Container logs:"
-              docker logs --tail 50 aqlliagronom-staging || true
+              docker logs --tail 200 aqlliagronom-staging 2>&1 || true
               docker stop aqlliagronom-staging 2>/dev/null || true
               docker rm   aqlliagronom-staging 2>/dev/null || true
               exit 1

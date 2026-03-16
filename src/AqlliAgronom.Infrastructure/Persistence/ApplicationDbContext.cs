@@ -22,9 +22,11 @@ public class ApplicationDbContext(
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
-        optionsBuilder
-            .AddInterceptors(auditInterceptor, domainEventInterceptor)
-            .EnableSensitiveDataLogging(false); // Disable in production
+        // Interceptors are null when running via IDesignTimeDbContextFactory (migrations tooling)
+        if (auditInterceptor is not null && domainEventInterceptor is not null)
+            optionsBuilder.AddInterceptors(auditInterceptor, domainEventInterceptor);
+
+        optionsBuilder.EnableSensitiveDataLogging(false);
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -32,37 +34,10 @@ public class ApplicationDbContext(
         // Apply all IEntityTypeConfiguration<T> from this assembly
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(ApplicationDbContext).Assembly);
 
-        // PostgreSQL-specific: use snake_case naming
-        foreach (var entity in modelBuilder.Model.GetEntityTypes())
-        {
-            // Owned types share their owner's table — skip table/key renaming to avoid
-            // PK constraint name conflicts (e.g. Order.FarmerPhone#PhoneNumber vs Order).
-            if (!entity.IsOwned())
-            {
-                entity.SetTableName(ToSnakeCase(entity.GetTableName() ?? entity.ClrType.Name));
-
-                foreach (var key in entity.GetKeys())
-                    key.SetName(ToSnakeCase(key.GetName() ?? "pk"));
-            }
-
-            foreach (var property in entity.GetProperties())
-            {
-                var colName = property.GetColumnName();
-                if (colName is not null)
-                    property.SetColumnName(ToSnakeCase(colName));
-            }
-
-            foreach (var fk in entity.GetForeignKeys())
-                fk.SetConstraintName(ToSnakeCase(fk.GetConstraintName() ?? "fk"));
-
-            foreach (var index in entity.GetIndexes())
-                index.SetDatabaseName(ToSnakeCase(index.GetDatabaseName() ?? "idx"));
-        }
+        // Snake_case naming is applied via UseSnakeCaseNamingConvention() in DependencyInjection.cs
+        // (EFCore.NamingConventions package). No manual renaming needed here.
 
         base.OnModelCreating(modelBuilder);
     }
 
-    private static string ToSnakeCase(string name) =>
-        string.Concat(name.Select((c, i) =>
-            i > 0 && char.IsUpper(c) ? $"_{c}" : $"{c}")).ToLower();
 }

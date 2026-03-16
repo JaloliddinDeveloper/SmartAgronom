@@ -36,13 +36,14 @@ public static class DependencyInjection
         // ── Database ─────────────────────────────────────────────────────────
         services.AddDbContext<ApplicationDbContext>(opts =>
             opts.UseNpgsql(
-                configuration.GetConnectionString("PostgreSQL"),
-                npgsql =>
-                {
-                    npgsql.EnableRetryOnFailure(maxRetryCount: 5, maxRetryDelay: TimeSpan.FromSeconds(10), null);
-                    npgsql.CommandTimeout(30);
-                    npgsql.MigrationsAssembly(typeof(ApplicationDbContext).Assembly.FullName);
-                }));
+                    configuration.GetConnectionString("PostgreSQL"),
+                    npgsql =>
+                    {
+                        npgsql.EnableRetryOnFailure(maxRetryCount: 5, maxRetryDelay: TimeSpan.FromSeconds(10), null);
+                        npgsql.CommandTimeout(30);
+                        npgsql.MigrationsAssembly(typeof(ApplicationDbContext).Assembly.FullName);
+                    })
+                .UseSnakeCaseNamingConvention());
 
         // ── EF Interceptors ───────────────────────────────────────────────────
         services.AddScoped<AuditableEntitySaveChangesInterceptor>();

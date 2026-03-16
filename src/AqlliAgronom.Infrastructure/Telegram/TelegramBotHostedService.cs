@@ -1,15 +1,18 @@
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Telegram.Bot;
+using Telegram.Bot.Exceptions;
 using Telegram.Bot.Polling;
+using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 
 namespace AqlliAgronom.Infrastructure.Telegram;
 
 public class TelegramBotHostedService(
     ITelegramBotClient botClient,
-    TelegramUpdateHandler updateHandler,
+    IServiceScopeFactory scopeFactory,
     IOptions<TelegramBotOptions> options,
     ILogger<TelegramBotHostedService> logger)
     : IHostedService
@@ -34,7 +37,7 @@ public class TelegramBotHostedService(
             return;
         }
 
-        // Long polling mode (development)
+        // Long polling mode (development) — creates a fresh DI scope per update
         _cts = new CancellationTokenSource();
 
         var receiverOptions = new ReceiverOptions
@@ -44,7 +47,7 @@ public class TelegramBotHostedService(
         };
 
         botClient.StartReceiving(
-            updateHandler: updateHandler,
+            updateHandler: new ScopePerUpdateHandler(scopeFactory, logger),
             receiverOptions: receiverOptions,
             cancellationToken: _cts.Token);
 
@@ -60,5 +63,30 @@ public class TelegramBotHostedService(
             await botClient.DeleteWebhook(cancellationToken: ct);
 
         logger.LogInformation("Telegram bot stopped");
+    }
+
+    // Resolves a fresh TelegramUpdateHandler scope for every incoming update,
+    // ensuring scoped services (repositories, DbContext) are handled correctly.
+    private sealed class ScopePerUpdateHandler(
+        IServiceScopeFactory scopeFactory,
+        ILogger logger) : IUpdateHandler
+    {
+        public async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, CancellationToken ct)
+        {
+            using var scope = scopeFactory.CreateScope();
+            var handler = scope.ServiceProvider.GetRequiredService<TelegramUpdateHandler>();
+            await handler.HandleUpdateAsync(bot, update, ct);
+        }
+
+        public Task HandleErrorAsync(ITelegramBotClient bot, Exception exception, HandleErrorSource source, CancellationToken ct)
+        {
+            var msg = exception switch
+            {
+                ApiRequestException apiEx => $"Telegram API Error [{apiEx.ErrorCode}]: {apiEx.Message}",
+                _ => exception.ToString()
+            };
+            logger.LogError("Telegram polling error [{Source}]: {Error}", source, msg);
+            return Task.CompletedTask;
+        }
     }
 }
