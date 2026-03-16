@@ -40,10 +40,16 @@ jobs:
     outputs:
       image_version: ${{ steps.meta.outputs.version }}
       image_tags: ${{ steps.meta.outputs.tags }}
+      image_name: ${{ steps.lower.outputs.name }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Compute lowercase image name
+        id: lower
+        run: |
+          echo "name=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')/aqlliagronom-api" >> "$GITHUB_OUTPUT"
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -62,7 +68,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ steps.lower.outputs.name }}
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
@@ -137,7 +143,7 @@ jobs:
         env:
           SSH_HOST: ${{ secrets.STAGING_HOST }}
           SSH_USER: ${{ secrets.STAGING_USER }}
-          IMAGE_FULL: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.resolve.outputs.tag }}
+          IMAGE_FULL: ${{ env.REGISTRY }}/${{ needs.build-and-push.outputs.image_name }}:${{ steps.resolve.outputs.tag }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GHCR_USER: ${{ github.actor }}
           DB_CONN: ${{ secrets.STAGING_DB_CONNECTION }}
@@ -299,7 +305,7 @@ jobs:
           SSH_HOST: ${{ secrets.PROD_HOST }}
           SSH_USER: ${{ secrets.PROD_USER }}
           IMAGE_TAG: ${{ steps.resolve.outputs.tag }}
-          FULL_IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.resolve.outputs.tag }}
+          FULL_IMAGE: ${{ env.REGISTRY }}/${{ needs.build-and-push.outputs.image_name }}:${{ steps.resolve.outputs.tag }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GHCR_USER: ${{ github.actor }}
           DB_CONN: ${{ secrets.PROD_DB_CONNECTION }}
