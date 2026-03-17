@@ -2,6 +2,8 @@ using System.Collections.Concurrent;
 using AqlliAgronom.Application.Features.AiChat.Commands.SendChatMessage;
 using AqlliAgronom.Application.Features.AiChat.Commands.StartSession;
 using AqlliAgronom.Application.Features.Auth.Commands.RegisterViaTelegram;
+using AqlliAgronom.Application.Features.Knowledge.Commands.CreateKnowledgeEntry;
+using AqlliAgronom.Application.Features.Knowledge.Commands.PublishKnowledgeEntry;
 using AqlliAgronom.Application.Features.Orders.Commands.ConfirmOrder;
 using AqlliAgronom.Application.Features.Orders.Commands.PlaceOrder;
 using AqlliAgronom.Application.Features.Products.Commands.CreateProduct;
@@ -31,10 +33,11 @@ public class TelegramUpdateHandler(
     : IUpdateHandler
 {
     // ── Per-chat states ───────────────────────────────────────────────────────
-    private static readonly ConcurrentDictionary<long, RegistrationState>  _regStates        = new();
-    private static readonly ConcurrentDictionary<long, OrderState>         _orderStates       = new();
-    private static readonly ConcurrentDictionary<long, AddProductState>    _addProductStates  = new();
-    private static readonly ConcurrentDictionary<long, PromoteState>       _promoteStates     = new();
+    private static readonly ConcurrentDictionary<long, RegistrationState>   _regStates           = new();
+    private static readonly ConcurrentDictionary<long, OrderState>          _orderStates          = new();
+    private static readonly ConcurrentDictionary<long, AddProductState>     _addProductStates     = new();
+    private static readonly ConcurrentDictionary<long, PromoteState>        _promoteStates        = new();
+    private static readonly ConcurrentDictionary<long, AddKnowledgeState>   _addKnowledgeStates   = new();
 
     private record RegistrationState(string Step, string? FullName = null);
     private record OrderState(Guid ProductId, string ProductName);
@@ -45,6 +48,16 @@ public class TelegramUpdateHandler(
         string? UsageInstructions   = null,
         decimal Price               = 0);
     private record PromoteState();
+    private record AddKnowledgeState(
+        string Step,
+        string? Crop            = null,
+        string? Problem         = null,
+        ProblemCategory? Cat    = null,
+        string? Symptoms        = null,
+        string? Explanation     = null,
+        string? Products        = null,
+        string? Dosage          = null,
+        string? Application     = null);
 
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -86,6 +99,12 @@ public class TelegramUpdateHandler(
         if (_addProductStates.TryGetValue(chatId, out var addState))
         {
             await HandleAddProductStepAsync(chatId, text, message.From, addState, ct);
+            return;
+        }
+
+        if (_addKnowledgeStates.TryGetValue(chatId, out var akState))
+        {
+            await HandleAddKnowledgeStepAsync(chatId, text, akState, ct);
             return;
         }
 
@@ -131,6 +150,13 @@ public class TelegramUpdateHandler(
         // ── Role-based commands ───────────────────────────────────────────────
         var isStaff = user.Role is UserRole.Agronom or UserRole.Admin;
         var isAdmin = user.Role == UserRole.Admin;
+
+        if (text.StartsWith("/addknowledge"))
+        {
+            if (!isStaff) { await NotifyNotStaffAsync(chatId, ct); return; }
+            await StartAddKnowledgeAsync(chatId, ct);
+            return;
+        }
 
         if (text.StartsWith("/addproduct"))
         {
@@ -627,7 +653,11 @@ public class TelegramUpdateHandler(
         var chatId = query.Message!.Chat.Id;
         var data   = query.Data ?? string.Empty;
 
-        if (data.StartsWith("batafsil:") && Guid.TryParse(data[9..], out var bId))
+        if (data.StartsWith("kcat:") && int.TryParse(data[5..], out var catVal))
+        {
+            await HandleKnowledgeCategoryAsync(chatId, (ProblemCategory)catVal, ct);
+        }
+        else if (data.StartsWith("batafsil:") && Guid.TryParse(data[9..], out var bId))
         {
             await SendProductDetailAsync(chatId, bId, ct);
         }
@@ -805,6 +835,162 @@ public class TelegramUpdateHandler(
         }
     }
 
+    // ── AddKnowledge state machine ────────────────────────────────────────────
+    private async Task StartAddKnowledgeAsync(long chatId, CancellationToken ct)
+    {
+        _addKnowledgeStates[chatId] = new AddKnowledgeState("awaiting_crop");
+        await botClient.SendMessage(chatId,
+            "🌱 *Yangi bilim qo'shish* (RAG bazasi)\n\n" +
+            "*Ekin nomini* yozing:\n_(Masalan: Bug'doy, Pomidor, G'o'za, Makkajo'xori)_",
+            parseMode: ParseMode.Markdown, cancellationToken: ct);
+    }
+
+    private async Task HandleAddKnowledgeStepAsync(
+        long chatId, string text, AddKnowledgeState state, CancellationToken ct)
+    {
+        switch (state.Step)
+        {
+            case "awaiting_crop":
+                if (text.Length < 2) { await botClient.SendMessage(chatId, "Juda qisqa. Ekin nomini yozing:", cancellationToken: ct); return; }
+                _addKnowledgeStates[chatId] = state with { Step = "awaiting_problem", Crop = text };
+                await botClient.SendMessage(chatId,
+                    $"✅ Ekin: *{EscapeMarkdown(text)}*\n\n*Muammo nomini* yozing:\n_(Masalan: Unli shudring, Tripslar, Temir kamchiligi)_",
+                    parseMode: ParseMode.Markdown, cancellationToken: ct);
+                break;
+
+            case "awaiting_problem":
+                if (text.Length < 3) { await botClient.SendMessage(chatId, "Juda qisqa. Muammo nomini yozing:", cancellationToken: ct); return; }
+                _addKnowledgeStates[chatId] = state with { Step = "awaiting_category", Problem = text };
+                await botClient.SendMessage(chatId,
+                    $"✅ Muammo: *{EscapeMarkdown(text)}*\n\nMuammo *kategoriyasini* tanlang:",
+                    parseMode: ParseMode.Markdown,
+                    replyMarkup: new InlineKeyboardMarkup(new[]
+                    {
+                        new[] { InlineKeyboardButton.WithCallbackData("🦠 Kasallik",         "kcat:1"),
+                                InlineKeyboardButton.WithCallbackData("🐛 Zararkunanda",      "kcat:2") },
+                        new[] { InlineKeyboardButton.WithCallbackData("🌿 Begona o't",        "kcat:3"),
+                                InlineKeyboardButton.WithCallbackData("🔬 Ozuqa kamchiligi",  "kcat:4") },
+                        new[] { InlineKeyboardButton.WithCallbackData("☀️ Abiotik stress",    "kcat:5"),
+                                InlineKeyboardButton.WithCallbackData("📋 Boshqa",            "kcat:6") },
+                    }),
+                    cancellationToken: ct);
+                break;
+
+            case "awaiting_symptoms":
+                if (text.Length < 10) { await botClient.SendMessage(chatId, "Belgilarni batafsil yozing (kamida 10 belgi):", cancellationToken: ct); return; }
+                _addKnowledgeStates[chatId] = state with { Step = "awaiting_explanation", Symptoms = text };
+                await botClient.SendMessage(chatId,
+                    "✅ Belgilar saqlandi.\n\n*Batafsil tushuntirish* yozing:\n_(Muammo qanday rivojlanadi, qanday sharoitda kuchayadi)_",
+                    parseMode: ParseMode.Markdown, cancellationToken: ct);
+                break;
+
+            case "awaiting_explanation":
+                if (text.Length < 20) { await botClient.SendMessage(chatId, "Tushuntirish juda qisqa. Batafsil yozing:", cancellationToken: ct); return; }
+                _addKnowledgeStates[chatId] = state with { Step = "awaiting_products", Explanation = text };
+                await botClient.SendMessage(chatId,
+                    "✅ Tushuntirish saqlandi.\n\n*Tavsiya etilgan mahsulotlar* nomlarini yozing:\n_(Masalan: Aktara 25WG, Topsin-M, Ridomil Gold)_",
+                    parseMode: ParseMode.Markdown, cancellationToken: ct);
+                break;
+
+            case "awaiting_products":
+                if (text.Length < 3) { await botClient.SendMessage(chatId, "Mahsulot nomlarini yozing:", cancellationToken: ct); return; }
+                _addKnowledgeStates[chatId] = state with { Step = "awaiting_dosage", Products = text };
+                await botClient.SendMessage(chatId,
+                    "✅ Mahsulotlar saqlandi.\n\n*Gektariga dozasi* yozing:\n_(Masalan: 0.2 kg/ga, 1 litr/ga, 2g/10L suv)_",
+                    parseMode: ParseMode.Markdown, cancellationToken: ct);
+                break;
+
+            case "awaiting_dosage":
+                if (text.Length < 2) { await botClient.SendMessage(chatId, "Dozani yozing:", cancellationToken: ct); return; }
+                _addKnowledgeStates[chatId] = state with { Step = "awaiting_application", Dosage = text };
+                await botClient.SendMessage(chatId,
+                    "✅ Doza saqlandi.\n\n*Ishlatish yo'riqnomasi* yozing:\n_(Qachon, qanday, necha marta ishlatish kerak)_",
+                    parseMode: ParseMode.Markdown, cancellationToken: ct);
+                break;
+
+            case "awaiting_application":
+                if (text.Length < 10) { await botClient.SendMessage(chatId, "Yo'riqnomani batafsil yozing:", cancellationToken: ct); return; }
+                _addKnowledgeStates[chatId] = state with { Step = "awaiting_safety", Application = text };
+                await botClient.SendMessage(chatId,
+                    "✅ Yo'riqnoma saqlandi.\n\n*Ehtiyot choralari* yozing:\n_(Himoya vositalar, hayvonlardan uzoqlashtirish va h.k.)_\n_Yo'q bo'lsa /skip yozing_",
+                    parseMode: ParseMode.Markdown, cancellationToken: ct);
+                break;
+
+            case "awaiting_safety":
+                var safety = text.Equals("/skip", StringComparison.OrdinalIgnoreCase)
+                    ? "Maxsus ehtiyot chorasi yo'q."
+                    : text;
+                await SaveKnowledgeAsync(chatId, state with { Step = "done" }, safety, ct);
+                break;
+        }
+    }
+
+    private async Task HandleKnowledgeCategoryAsync(long chatId, ProblemCategory category, CancellationToken ct)
+    {
+        if (!_addKnowledgeStates.TryGetValue(chatId, out var state) || state.Step != "awaiting_category")
+            return;
+
+        var catName = category switch
+        {
+            ProblemCategory.Disease            => "Kasallik",
+            ProblemCategory.Pest               => "Zararkunanda",
+            ProblemCategory.Weed               => "Begona o't",
+            ProblemCategory.NutrientDeficiency => "Ozuqa kamchiligi",
+            ProblemCategory.AbiotiStress       => "Abiotik stress",
+            _                                  => "Boshqa"
+        };
+
+        _addKnowledgeStates[chatId] = state with { Step = "awaiting_symptoms", Cat = category };
+        await botClient.SendMessage(chatId,
+            $"✅ Kategoriya: *{catName}*\n\n*Belgilar (alomatlar)* yozing:\n_(Dehqon ko'radigan ko'rinishlar: rang o'zgarishi, dog'lar, so'lish...)_",
+            parseMode: ParseMode.Markdown, cancellationToken: ct);
+    }
+
+    private async Task SaveKnowledgeAsync(
+        long chatId, AddKnowledgeState state, string safety, CancellationToken ct)
+    {
+        _addKnowledgeStates.TryRemove(chatId, out _);
+
+        var user = await userRepository.FindByTelegramChatIdAsync(chatId, ct);
+        if (user is null) { await botClient.SendMessage(chatId, "Xatolik: foydalanuvchi topilmadi.", cancellationToken: ct); return; }
+
+        try
+        {
+            var title = $"{state.Crop} — {state.Problem}";
+            var entry = await mediator.Send(new CreateKnowledgeEntryCommand(
+                Title:                  title,
+                CropName:               state.Crop!,
+                ProblemName:            state.Problem!,
+                Category:               state.Cat!.Value,
+                Symptoms:               state.Symptoms!,
+                DetailedExplanation:    state.Explanation!,
+                RecommendedProducts:    state.Products!,
+                DosagePerHectare:       state.Dosage!,
+                ApplicationInstructions: state.Application!,
+                SafetyPrecautions:      safety,
+                Language:               Language.Uzbek), ct);
+
+            // Auto-publish so background job picks it up for indexing
+            await mediator.Send(new PublishKnowledgeEntryCommand(entry.Id), ct);
+
+            await botClient.SendMessage(chatId,
+                $"✅ *Bilim bazasiga qo'shildi!*\n\n" +
+                $"🌱 Ekin: *{EscapeMarkdown(state.Crop!)}*\n" +
+                $"🔍 Muammo: *{EscapeMarkdown(state.Problem!)}*\n" +
+                $"📦 Mahsulotlar: {EscapeMarkdown(state.Products!)}\n\n" +
+                "⏳ 5 daqiqa ichida AI bazaga indekslanadi.\n" +
+                "Dehqon shu muammo haqida so'rasa, AI sizning ma'lumotingizni ishlatadi.",
+                parseMode: ParseMode.Markdown, cancellationToken: ct);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "SaveKnowledge failed for chat {ChatId}", chatId);
+            await botClient.SendMessage(chatId,
+                "❌ Saqlashda xatolik. /addknowledge — qayta urinib ko'ring.",
+                cancellationToken: ct);
+        }
+    }
+
     // ── /help ─────────────────────────────────────────────────────────────────
     private async Task SendHelpMessageAsync(long chatId, CancellationToken ct)
     {
@@ -834,7 +1020,11 @@ public class TelegramUpdateHandler(
                 "  nom → tavsif → yo'riqnoma → narx → rasm\n" +
                 "/myproducts — mahsulotlarim ro'yxati\n" +
                 "/orders — kutilayotgan buyurtmalar\n" +
-                "  ✅ Tasdiqlash tugmasi — buyurtmani tasdiqlash\n";
+                "  ✅ Tasdiqlash tugmasi — buyurtmani tasdiqlash\n\n" +
+                "/addknowledge — RAG bazasiga bilim qo'shish\n" +
+                "  ekin → muammo → kategoriya → belgilar →\n" +
+                "  tushuntirish → mahsulotlar → doza → yo'riqnoma\n" +
+                "  _(5 daqiqada AI ishlatib boshlaydi)_\n";
         }
 
         if (isAdmin)
@@ -853,6 +1043,7 @@ public class TelegramUpdateHandler(
         _regStates.TryRemove(chatId, out _);
         _orderStates.TryRemove(chatId, out _);
         _addProductStates.TryRemove(chatId, out _);
+        _addKnowledgeStates.TryRemove(chatId, out _);
         _promoteStates.TryRemove(chatId, out _);
     }
 
