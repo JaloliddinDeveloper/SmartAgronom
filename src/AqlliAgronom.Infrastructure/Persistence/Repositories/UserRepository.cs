@@ -1,4 +1,5 @@
 using AqlliAgronom.Domain.Entities;
+using AqlliAgronom.Domain.Enums;
 using AqlliAgronom.Domain.Interfaces.Repositories;
 using Microsoft.EntityFrameworkCore;
 
@@ -18,4 +19,10 @@ public class UserRepository(ApplicationDbContext dbContext)
 
     public async Task<bool> PhoneExistsAsync(string phone, CancellationToken ct = default)
         => await DbSet.AnyAsync(u => u.Phone.Value == phone, ct);
+
+    public async Task<IReadOnlyList<User>> GetAgronomistsWithTelegramAsync(CancellationToken ct = default)
+        => await DbSet
+            .Where(u => (u.Role == UserRole.Agronom || u.Role == UserRole.Admin)
+                        && u.TelegramChatId != null && u.IsActive)
+            .ToListAsync(ct);
 }

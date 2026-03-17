@@ -1,5 +1,8 @@
 using AqlliAgronom.API.Middleware;
 using AqlliAgronom.Application;
+using AqlliAgronom.Application.Common.Interfaces;
+using AqlliAgronom.Domain.Entities;
+using AqlliAgronom.Domain.Enums;
 using AqlliAgronom.Infrastructure;
 using AqlliAgronom.Infrastructure.Persistence;
 using Microsoft.AspNetCore.RateLimiting;
@@ -120,6 +123,23 @@ try
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         await db.Database.MigrateAsync();
         Log.Information("Database migrations applied.");
+
+        // ── Seed default admin user if none exists ─────────────────────────
+        var adminPhone = "+998900000001";
+        var adminExists = await db.Users.AnyAsync(u => u.Role == UserRole.Admin);
+        if (!adminExists)
+        {
+            var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
+            var adminPassword = builder.Configuration["Seed:AdminPassword"] ?? "Admin@12345";
+            var admin = User.Register(
+                fullName: "Admin",
+                phone: adminPhone,
+                passwordHash: hasher.Hash(adminPassword));
+            admin.AssignRole(UserRole.Admin);
+            db.Users.Add(admin);
+            await db.SaveChangesAsync();
+            Log.Information("Default admin user seeded (phone: {Phone})", adminPhone);
+        }
     }
 
     // ── Middleware pipeline (ORDER MATTERS) ───────────────────────────────────
