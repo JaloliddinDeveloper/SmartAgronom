@@ -27,12 +27,19 @@ public class TelegramBotHostedService(
         {
             if (!string.IsNullOrWhiteSpace(opts.WebhookUrl))
             {
-                await botClient.SetWebhook(
-                    url: opts.WebhookUrl,
-                    secretToken: opts.WebhookSecret,
-                    allowedUpdates: [UpdateType.Message, UpdateType.CallbackQuery],
-                    cancellationToken: ct);
-                logger.LogInformation("Telegram webhook set to {Url}", opts.WebhookUrl);
+                try
+                {
+                    await botClient.SetWebhook(
+                        url: opts.WebhookUrl,
+                        secretToken: opts.WebhookSecret,
+                        allowedUpdates: [UpdateType.Message, UpdateType.CallbackQuery],
+                        cancellationToken: ct);
+                    logger.LogInformation("Telegram webhook set to {Url}", opts.WebhookUrl);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Failed to set Telegram webhook to {Url}. Bot will not receive updates until webhook is registered.", opts.WebhookUrl);
+                }
             }
             return;
         }
