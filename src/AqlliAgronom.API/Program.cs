@@ -140,6 +140,29 @@ try
             await db.SaveChangesAsync();
             Log.Information("Default admin user seeded (phone: {Phone})", adminPhone);
         }
+
+        // ── Link AdminTelegramChatId to admin user ─────────────────────────
+        var adminChatIdStr = builder.Configuration["Seed:AdminTelegramChatId"];
+        if (long.TryParse(adminChatIdStr, out var adminChatId) && adminChatId > 0)
+        {
+            // Find admin user
+            var adminUser = await db.Users.FirstOrDefaultAsync(u => u.Role == UserRole.Admin);
+            if (adminUser is not null && adminUser.TelegramChatId != adminChatId)
+            {
+                adminUser.LinkTelegram(adminChatId, null);
+                await db.SaveChangesAsync();
+                Log.Information("Admin TelegramChatId linked: {ChatId}", adminChatId);
+            }
+
+            // Also: if a user with this ChatId exists but is not Admin — promote them
+            var userWithChatId = await db.Users.FirstOrDefaultAsync(u => u.TelegramChatId == adminChatId);
+            if (userWithChatId is not null && userWithChatId.Role != UserRole.Admin)
+            {
+                userWithChatId.AssignRole(UserRole.Admin);
+                await db.SaveChangesAsync();
+                Log.Information("User {UserId} promoted to Admin via AdminTelegramChatId", userWithChatId.Id);
+            }
+        }
     }
 
     // ── Middleware pipeline (ORDER MATTERS) ───────────────────────────────────
