@@ -101,7 +101,7 @@ jobs:
     needs: build-and-push
     environment:
       name: staging
-      url: https://staging-api.fastergo.uz
+      url: http://${{ secrets.STAGING_HOST }}:8080
     if: >-
       github.ref == 'refs/heads/master' ||
       startsWith(github.ref, 'refs/tags/v') ||
@@ -141,17 +141,6 @@ jobs:
           echo "-----------------------"
           ssh-keyscan -H "${SSH_HOST}" >> ~/.ssh/known_hosts 2>/dev/null
           echo "SSH configured for ${SSH_HOST}"
-
-      - name: Copy nginx config to staging server
-        env:
-          SSH_HOST: ${{ secrets.STAGING_HOST }}
-          SSH_USER: ${{ secrets.STAGING_USER }}
-        run: |
-          ssh -i ~/.ssh/deploy_key "${SSH_USER}@${SSH_HOST}" \
-            mkdir -p /opt/aqlliagronom/staging/nginx
-          scp -i ~/.ssh/deploy_key \
-            nginx/conf.d/staging.conf \
-            "${SSH_USER}@${SSH_HOST}:/opt/aqlliagronom/staging/nginx/app.conf"
 
       - name: Deploy to staging via SSH
         env:
@@ -300,7 +289,7 @@ jobs:
             -e "Qdrant__Host=\${QDRANT_CONTAINER}" \
             -e "Qdrant__ApiKey=\${QDRANT_KEY}" \
             -e "FileStorage__BasePath=/app/uploads" \
-            -e "FileStorage__BaseUrl=https://staging-api.fastergo.uz/uploads" \
+            -e "FileStorage__BaseUrl=http://\${SSH_HOST}:8080/uploads" \
             -v /opt/aqlliagronom/staging/logs:/app/logs \
             -v staging_uploads_data:/app/uploads \
             "\${IMAGE_FULL}"
@@ -322,67 +311,8 @@ jobs:
             sleep 5
           done
 
-          # ── Nginx + Certbot ────────────────────────────────────────────────────
-          # nginx config was already copied to NGINX_CONF_DIR by the runner (scp step above)
-          NGINX_DOMAIN="staging-api.fastergo.uz"
-          NGINX_CONF_DIR="/opt/aqlliagronom/staging/nginx"
-
-          # Docker volumes for certbot certs and ACME webroot
-          docker volume create certbot_staging_certs 2>/dev/null || true
-          docker volume create certbot_staging_www   2>/dev/null || true
-
-          # Generate a dummy self-signed cert if no real cert exists yet.
-          # This lets nginx start on first deploy before certbot runs.
-          if ! docker run --rm -v certbot_staging_certs:/etc/letsencrypt alpine \
-               test -f "/etc/letsencrypt/live/\${NGINX_DOMAIN}/fullchain.pem" 2>/dev/null; then
-            echo "==> Generating temporary self-signed cert for \${NGINX_DOMAIN}..."
-            docker run --rm -v certbot_staging_certs:/etc/letsencrypt alpine sh -c \
-              "apk add --no-cache openssl >/dev/null 2>&1 && \
-               mkdir -p /etc/letsencrypt/live/\${NGINX_DOMAIN} && \
-               openssl req -x509 -nodes -newkey rsa:2048 \
-                 -keyout /etc/letsencrypt/live/\${NGINX_DOMAIN}/privkey.pem \
-                 -out    /etc/letsencrypt/live/\${NGINX_DOMAIN}/fullchain.pem \
-                 -days 1 -subj /CN=\${NGINX_DOMAIN} 2>/dev/null"
-          fi
-
-          # Start or reload nginx
-          if docker ps --format '{{.Names}}' | grep -q '^aqlliagronom-nginx$'; then
-            echo "==> Reloading nginx config..."
-            docker exec aqlliagronom-nginx nginx -s reload || true
-          else
-            docker stop aqlliagronom-nginx 2>/dev/null || true
-            docker rm   aqlliagronom-nginx 2>/dev/null || true
-            echo "==> Starting nginx..."
-            docker run -d \
-              --name aqlliagronom-nginx \
-              --restart unless-stopped \
-              --network aqlliagronom-network \
-              -p 80:80 -p 443:443 \
-              -v "\${NGINX_CONF_DIR}:/etc/nginx/conf.d:ro" \
-              -v certbot_staging_certs:/etc/letsencrypt:ro \
-              -v certbot_staging_www:/var/www/certbot:ro \
-              nginx:1.28-alpine
-          fi
-
-          # Obtain real Let's Encrypt cert via webroot challenge (idempotent).
-          # Skipped automatically if a valid cert already exists.
-          if [ -n "\${CERTBOT_EMAIL}" ]; then
-            echo "==> Running certbot..."
-            docker run --rm \
-              -v certbot_staging_certs:/etc/letsencrypt \
-              -v certbot_staging_www:/var/www/certbot \
-              certbot/certbot certonly \
-                --webroot -w /var/www/certbot \
-                -d "\${NGINX_DOMAIN}" \
-                --non-interactive --agree-tos \
-                -m "\${CERTBOT_EMAIL}" \
-                --keep-until-expiring 2>&1 | tail -5 || true
-            # Reload nginx to pick up the newly issued certificate
-            docker exec aqlliagronom-nginx nginx -s reload 2>/dev/null || true
-          else
-            echo "==> CERTBOT_EMAIL secret not set — skipping Let's Encrypt cert."
-          fi
-          echo "==> Nginx ready at https://\${NGINX_DOMAIN}"
+          # ── Nginx / SSL — skipped for staging (no domain, accessed via IP:8080) ──
+          echo "==> Staging accessible at http://\$(hostname -I | awk '{print \$1}'):8080"
 
           docker image prune -f || true
           ENDSSH
