@@ -51,8 +51,8 @@ RUN groupadd -r appgroup && useradd -r -g appgroup -s /sbin/nologin appuser
 
 COPY --from=publish /app/publish .
 
-# Create logs directory with correct ownership
-RUN mkdir -p /app/logs && chown -R appuser:appgroup /app
+# Create logs and uploads directories with correct ownership
+RUN mkdir -p /app/logs /app/uploads && chown -R appuser:appgroup /app
 
 USER appuser
 
