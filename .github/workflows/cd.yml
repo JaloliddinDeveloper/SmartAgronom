@@ -101,7 +101,7 @@ jobs:
     needs: build-and-push
     environment:
       name: staging
-      url: http://${{ secrets.STAGING_HOST }}:8080
+      url: https://agronom.fastergo.uz
     if: >-
       github.ref == 'refs/heads/master' ||
       startsWith(github.ref, 'refs/tags/v') ||
@@ -141,6 +141,17 @@ jobs:
           echo "-----------------------"
           ssh-keyscan -H "${SSH_HOST}" >> ~/.ssh/known_hosts 2>/dev/null
           echo "SSH configured for ${SSH_HOST}"
+
+      - name: Copy nginx config to staging server
+        env:
+          SSH_HOST: ${{ secrets.STAGING_HOST }}
+          SSH_USER: ${{ secrets.STAGING_USER }}
+        run: |
+          ssh -i ~/.ssh/deploy_key "${SSH_USER}@${SSH_HOST}" \
+            mkdir -p /opt/aqlliagronom/staging/nginx
+          scp -i ~/.ssh/deploy_key \
+            nginx/conf.d/staging.conf \
+            "${SSH_USER}@${SSH_HOST}:/opt/aqlliagronom/staging/nginx/app.conf"
 
       - name: Deploy to staging via SSH
         env:
@@ -289,7 +300,7 @@ jobs:
             -e "Qdrant__Host=\${QDRANT_CONTAINER}" \
             -e "Qdrant__ApiKey=\${QDRANT_KEY}" \
             -e "FileStorage__BasePath=/app/uploads" \
-            -e "FileStorage__BaseUrl=http://\${SSH_HOST}:8080/uploads" \
+            -e "FileStorage__BaseUrl=https://agronom.fastergo.uz/uploads" \
             -v /opt/aqlliagronom/staging/logs:/app/logs \
             -v staging_uploads_data:/app/uploads \
             "\${IMAGE_FULL}"
@@ -311,15 +322,64 @@ jobs:
             sleep 5
           done
 
-          # ── Nginx / SSL — skipped for staging (no domain, accessed via IP:8080) ──
-          echo "==> Staging accessible at http://\$(hostname -I | awk '{print \$1}'):8080"
+          # ── Nginx + Certbot (SSL) ─────────────────────────────────────────────
+          NGINX_DOMAIN="agronom.fastergo.uz"
+          NGINX_CONF_DIR="/opt/aqlliagronom/staging/nginx"
+
+          docker volume create certbot_staging_certs 2>/dev/null || true
+          docker volume create certbot_staging_www   2>/dev/null || true
+
+          # Generate temporary self-signed cert on first deploy so nginx can start
+          if ! docker run --rm -v certbot_staging_certs:/etc/letsencrypt alpine \
+               test -f "/etc/letsencrypt/live/\${NGINX_DOMAIN}/fullchain.pem" 2>/dev/null; then
+            echo "==> Generating temporary self-signed cert for \${NGINX_DOMAIN}..."
+            docker run --rm -v certbot_staging_certs:/etc/letsencrypt alpine sh -c \
+              "apk add --no-cache openssl >/dev/null 2>&1 && \
+               mkdir -p /etc/letsencrypt/live/\${NGINX_DOMAIN} && \
+               openssl req -x509 -nodes -newkey rsa:2048 \
+                 -keyout /etc/letsencrypt/live/\${NGINX_DOMAIN}/privkey.pem \
+                 -out    /etc/letsencrypt/live/\${NGINX_DOMAIN}/fullchain.pem \
+                 -days 1 -subj /CN=\${NGINX_DOMAIN} 2>/dev/null"
+          fi
+
+          if docker ps --format '{{.Names}}' | grep -q '^aqlliagronom-nginx\$'; then
+            echo "==> Reloading nginx config..."
+            docker exec aqlliagronom-nginx nginx -s reload || true
+          else
+            docker stop aqlliagronom-nginx 2>/dev/null || true
+            docker rm   aqlliagronom-nginx 2>/dev/null || true
+            echo "==> Starting nginx..."
+            docker run -d \
+              --name aqlliagronom-nginx \
+              --restart unless-stopped \
+              --network aqlliagronom-network \
+              -p 80:80 -p 443:443 \
+              -v "\${NGINX_CONF_DIR}:/etc/nginx/conf.d:ro" \
+              -v certbot_staging_certs:/etc/letsencrypt:ro \
+              -v certbot_staging_www:/var/www/certbot:ro \
+              -v staging_uploads_data:/app/uploads:ro \
+              nginx:1.28-alpine
+          fi
+
+          if [ -n "\${CERTBOT_EMAIL}" ]; then
+            echo "==> Running certbot for \${NGINX_DOMAIN}..."
+            docker run --rm \
+              -v certbot_staging_certs:/etc/letsencrypt \
+              -v certbot_staging_www:/var/www/certbot \
+              certbot/certbot certonly \
+                --webroot -w /var/www/certbot \
+                -d "\${NGINX_DOMAIN}" \
+                --non-interactive --agree-tos \
+                -m "\${CERTBOT_EMAIL}" \
+                --keep-until-expiring 2>&1 | tail -5 || true
+            docker exec aqlliagronom-nginx nginx -s reload 2>/dev/null || true
+          fi
+          echo "==> https://\${NGINX_DOMAIN} ready"
 
           docker image prune -f || true
           ENDSSH
 
   # ── 3. Smoke Test Staging ─────────────────────────────────────────────────────
-  # Tests against http://<host>:8080 (direct Docker port) — no nginx/TLS needed.
-  # Switch to https://staging-api.aqlliagronom.uz once a reverse proxy is set up.
   smoke-test-staging:
     name: Smoke Test — Staging
     runs-on: ubuntu-latest
@@ -327,12 +387,10 @@ jobs:
 
     steps:
       - name: Health check with retries
-        env:
-          STAGING_HOST: ${{ secrets.STAGING_HOST }}
         run: |
-          BASE="http://${STAGING_HOST}:8080"
+          BASE="https://agronom.fastergo.uz"
           for i in $(seq 1 6); do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 10 "${BASE}/health/live")
+            STATUS=$(curl -sk -o /dev/null -w "%{http_code}" --connect-timeout 10 "${BASE}/health/live")
             if [ "$STATUS" = "200" ]; then
               echo "Health check passed (HTTP $STATUS)"
               break
@@ -346,11 +404,9 @@ jobs:
           done
 
       - name: API smoke test
-        env:
-          STAGING_HOST: ${{ secrets.STAGING_HOST }}
         run: |
-          BASE="http://${STAGING_HOST}:8080"
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 10 \
+          BASE="https://agronom.fastergo.uz"
+          STATUS=$(curl -sk -o /dev/null -w "%{http_code}" --connect-timeout 10 \
             -X POST "${BASE}/api/v1/auth/register" \
             -H "Content-Type: application/json" \
             -d '{"fullName":"","phone":"","password":""}')
