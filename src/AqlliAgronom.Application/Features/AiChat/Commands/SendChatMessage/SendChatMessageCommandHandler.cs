@@ -57,7 +57,9 @@ public class SendChatMessageCommandHandler(
         // Record AI response in session
         session.AddMessage(result.Response, MessageRole.Assistant, result.TotalTokensUsed);
 
-        uow.FarmerSessions.Update(session);
+        // session is already tracked by EF — do not call Update() as it would
+        // mark newly-added ConversationMessage entities as Modified (not Added),
+        // causing DbUpdateConcurrencyException when EF tries to UPDATE non-existent rows.
         await uow.SaveChangesAsync(ct);
 
         logger.LogInformation(
