@@ -6,6 +6,7 @@ using AqlliAgronom.Application.Features.Knowledge.Commands.CreateKnowledgeEntry;
 using AqlliAgronom.Application.Features.Knowledge.Commands.PublishKnowledgeEntry;
 using AqlliAgronom.Application.Features.Orders.Commands.ConfirmOrder;
 using AqlliAgronom.Application.Features.Orders.Commands.PlaceOrder;
+using AqlliAgronom.Application.Common.Interfaces;
 using AqlliAgronom.Application.Features.Products.Commands.CreateProduct;
 using AqlliAgronom.Application.Features.Products.Commands.DeleteProduct;
 using AqlliAgronom.Application.Features.Products.DTOs;
@@ -30,6 +31,7 @@ public class TelegramUpdateHandler(
     IUserRepository userRepository,
     IProductRepository productRepository,
     IOrderRepository orderRepository,
+    IFileStorageService fileStorage,
     ILogger<TelegramUpdateHandler> logger)
     : IUpdateHandler
 {
@@ -404,9 +406,22 @@ public class TelegramUpdateHandler(
     private async Task HandleAddProductPhotoAsync(
         long chatId, PhotoSize[] photos, AddProductState state, TelegramUser? from, CancellationToken ct)
     {
-        // Largest photo = last element; store as Telegram file ID URL
-        var fileId   = photos[^1].FileId;
-        var imageUrl = $"tg:{fileId}";
+        // Download largest photo from Telegram and save to local storage
+        var fileId = photos[^1].FileId;
+        string? imageUrl = null;
+        try
+        {
+            imageUrl = await fileStorage.SaveTelegramPhotoAsync(fileId, ct);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to download photo {FileId} for chat {ChatId}", fileId, chatId);
+            await botClient.SendMessage(chatId,
+                "⚠️ Rasmni saqlashda xatolik. Davom etish uchun /skip yozing yoki qaytadan rasm yuboring.",
+                cancellationToken: ct);
+            return;
+        }
+
         _addProductStates[chatId] = state with { Step = "awaiting_benefits", ImageUrl = imageUrl };
         await botClient.SendMessage(chatId,
             "✅ Rasm saqlandi.\n\n" +
@@ -710,6 +725,7 @@ public class TelegramUpdateHandler(
     private async Task SendProductWithImageAsync(
         long chatId, string imageUrl, string caption, InlineKeyboardMarkup buttons, CancellationToken ct)
     {
+        // Legacy support: old entries stored as "tg:{fileId}", new ones are real HTTP URLs
         InputFile photo = imageUrl.StartsWith("tg:")
             ? InputFile.FromFileId(imageUrl[3..])
             : InputFile.FromUri(imageUrl);

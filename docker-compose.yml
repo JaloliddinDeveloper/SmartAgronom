@@ -104,6 +104,7 @@ services:
       - "8080:8080"
     volumes:
       - api_logs:/app/logs
+      - uploads_data:/app/uploads
     networks:
       - aqlliagronom-network
     healthcheck:
@@ -163,6 +164,8 @@ volumes:
   qdrant_data:
     driver: local
   api_logs:
+    driver: local
+  uploads_data:
     driver: local
   certbot_certs:
     driver: local

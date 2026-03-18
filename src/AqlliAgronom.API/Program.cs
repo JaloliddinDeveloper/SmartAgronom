@@ -166,6 +166,15 @@ try
     }
 
     // ── Middleware pipeline (ORDER MATTERS) ───────────────────────────────────
+    // ── Static file serving for uploaded product images ───────────────────────
+    var uploadsPath = builder.Configuration["FileStorage:BasePath"] ?? "/app/uploads";
+    Directory.CreateDirectory(uploadsPath);
+    app.UseStaticFiles(new StaticFileOptions
+    {
+        FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(uploadsPath),
+        RequestPath  = "/uploads"
+    });
+
     app.UseMiddleware<CorrelationIdMiddleware>();
     app.UseMiddleware<ExceptionHandlingMiddleware>();
     app.UseMiddleware<RequestLoggingMiddleware>();

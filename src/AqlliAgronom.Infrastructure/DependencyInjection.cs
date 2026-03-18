@@ -130,6 +130,10 @@ public static class DependencyInjection
         services.AddScoped<TelegramUpdateHandler>();
         services.AddHostedService<TelegramBotHostedService>();
 
+        // ── File Storage ──────────────────────────────────────────────────────
+        services.Configure<FileStorageOptions>(configuration.GetSection(FileStorageOptions.SectionName));
+        services.AddScoped<IFileStorageService, LocalFileStorageService>();
+
         // ── Current User / DateTime Services ─────────────────────────────────
         services.AddHttpContextAccessor();
         services.AddScoped<ICurrentUserService, CurrentUserService>();
