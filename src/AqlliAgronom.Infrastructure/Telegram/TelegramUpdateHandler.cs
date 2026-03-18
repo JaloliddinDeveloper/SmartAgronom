@@ -406,8 +406,22 @@ public class TelegramUpdateHandler(
     private async Task HandleAddProductPhotoAsync(
         long chatId, PhotoSize[] photos, AddProductState state, TelegramUser? from, CancellationToken ct)
     {
-        // Download largest photo from Telegram and save to local storage
-        var fileId = photos[^1].FileId;
+        // Pick the largest photo that has a valid FileId (Telegram.Bot v22 may leave FileId null on some sizes)
+        var bestPhoto = photos
+            .Where(p => !string.IsNullOrEmpty(p.FileId))
+            .OrderByDescending(p => p.Width * p.Height)
+            .FirstOrDefault();
+
+        if (bestPhoto == null)
+        {
+            logger.LogWarning("All {Count} PhotoSize entries have null FileId for chat {ChatId}", photos.Length, chatId);
+            await botClient.SendMessage(chatId,
+                "⚠️ Rasmni yuklab bo'lmadi. Qaytadan rasm yuboring.",
+                cancellationToken: ct);
+            return;
+        }
+
+        var fileId = bestPhoto.FileId!;
         string? imageUrl = null;
         try
         {
