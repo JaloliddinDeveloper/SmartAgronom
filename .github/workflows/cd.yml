@@ -279,6 +279,9 @@ jobs:
           docker rm   aqlliagronom-staging 2>/dev/null || true
 
           echo "==> Starting API container..."
+          mkdir -p /opt/aqlliagronom/staging/uploads
+          docker volume create staging_uploads_data 2>/dev/null || true
+
           docker run -d \
             --name aqlliagronom-staging \
             --restart unless-stopped \
@@ -296,7 +299,10 @@ jobs:
             -e "Telegram__UseWebhook=true" \
             -e "Qdrant__Host=\${QDRANT_CONTAINER}" \
             -e "Qdrant__ApiKey=\${QDRANT_KEY}" \
+            -e "FileStorage__BasePath=/app/uploads" \
+            -e "FileStorage__BaseUrl=https://staging-api.fastergo.uz/uploads" \
             -v /opt/aqlliagronom/staging/logs:/app/logs \
+            -v staging_uploads_data:/app/uploads \
             "\${IMAGE_FULL}"
 
           echo "==> Waiting for health check (up to 120s)..."
@@ -391,10 +397,12 @@ jobs:
 
     steps:
       - name: Health check with retries
+        env:
+          STAGING_HOST: ${{ secrets.STAGING_HOST }}
         run: |
-          BASE="https://staging-api.fastergo.uz"
+          BASE="http://${STAGING_HOST}:8080"
           for i in $(seq 1 6); do
-            STATUS=$(curl -sk -o /dev/null -w "%{http_code}" "${BASE}/health/live")
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 10 "${BASE}/health/live")
             if [ "$STATUS" = "200" ]; then
               echo "Health check passed (HTTP $STATUS)"
               break
@@ -408,9 +416,11 @@ jobs:
           done
 
       - name: API smoke test
+        env:
+          STAGING_HOST: ${{ secrets.STAGING_HOST }}
         run: |
-          BASE="https://staging-api.fastergo.uz"
-          STATUS=$(curl -sk -o /dev/null -w "%{http_code}" \
+          BASE="http://${STAGING_HOST}:8080"
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 10 \
             -X POST "${BASE}/api/v1/auth/register" \
             -H "Content-Type: application/json" \
             -d '{"fullName":"","phone":"","password":""}')
