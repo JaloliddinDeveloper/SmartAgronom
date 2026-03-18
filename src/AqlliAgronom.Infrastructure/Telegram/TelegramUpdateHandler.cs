@@ -8,6 +8,7 @@ using AqlliAgronom.Application.Features.Orders.Commands.ConfirmOrder;
 using AqlliAgronom.Application.Features.Orders.Commands.PlaceOrder;
 using AqlliAgronom.Application.Features.Products.Commands.CreateProduct;
 using AqlliAgronom.Application.Features.Products.Commands.DeleteProduct;
+using AqlliAgronom.Application.Features.Products.DTOs;
 using AqlliAgronom.Application.Features.Users.Commands.PromoteToAgronom;
 using AqlliAgronom.Domain.Enums;
 using AqlliAgronom.Domain.Interfaces.Repositories;
@@ -43,10 +44,12 @@ public class TelegramUpdateHandler(
     private record OrderState(Guid ProductId, string ProductName);
     private record AddProductState(
         string Step,
-        string? Name                = null,
-        string? Description         = null,
-        string? UsageInstructions   = null,
-        decimal Price               = 0);
+        string? Name              = null,
+        string? ImageUrl          = null,
+        string? Benefits          = null,
+        string? UsageInstructions = null,
+        string? Details           = null,
+        decimal Price             = 0);
     private record PromoteState();
     private record AddKnowledgeState(
         string Step,
@@ -315,26 +318,43 @@ public class TelegramUpdateHandler(
                     await botClient.SendMessage(chatId, "Nom juda qisqa. Qaytadan yozing:", cancellationToken: ct);
                     return;
                 }
-                _addProductStates[chatId] = state with { Step = "awaiting_description", Name = text };
+                _addProductStates[chatId] = state with { Step = "awaiting_photo", Name = text };
                 await botClient.SendMessage(chatId,
                     $"✅ Nom: *{EscapeMarkdown(text)}*\n\n" +
-                    "Mahsulot tavsifini yozing (qaysi muammolarga yordam beradi):\n" +
-                    "_(Masalan: Bug'doy, arpa, makkajo'xori zararkunandalariga qarshi kuchli insektitsid)_",
+                    "📸 Mahsulot rasmini yuboring.\n_(Rasm yo'q bo'lsa /skip yozing)_",
                     parseMode: ParseMode.Markdown, cancellationToken: ct);
                 break;
 
-            case "awaiting_description":
+            case "awaiting_photo":
+                if (text.Equals("/skip", StringComparison.OrdinalIgnoreCase) || text.Equals("skip", StringComparison.OrdinalIgnoreCase))
+                {
+                    _addProductStates[chatId] = state with { Step = "awaiting_benefits", ImageUrl = null };
+                    await botClient.SendMessage(chatId,
+                        "📸 Rasm o'tkazib yuborildi.\n\n" +
+                        "🌿 *Foydalari* — bu mahsulot qanday muammolarni hal qiladi?\n" +
+                        "_(Masalan: Shiralar, trips va oq kapalakka qarshi. Pomidor, bodring, bug'doyda ishlaydi)_",
+                        parseMode: ParseMode.Markdown, cancellationToken: ct);
+                }
+                else
+                {
+                    await botClient.SendMessage(chatId,
+                        "Rasm yuboring yoki /skip yozing (rasmsiz saqlash).",
+                        cancellationToken: ct);
+                }
+                break;
+
+            case "awaiting_benefits":
                 if (text.Length < 10)
                 {
                     await botClient.SendMessage(chatId,
-                        "Tavsif juda qisqa (kamida 10 ta belgi). Qaytadan yozing:",
-                        cancellationToken: ct);
+                        "Kamida 10 ta belgi yozing. Qaytadan kiriting:", cancellationToken: ct);
                     return;
                 }
-                _addProductStates[chatId] = state with { Step = "awaiting_usage", Description = text };
+                _addProductStates[chatId] = state with { Step = "awaiting_usage", Benefits = text };
                 await botClient.SendMessage(chatId,
-                    "✅ Tavsif saqlandi.\n\nIshlatish yo'riqnomasini yozing:\n" +
-                    "_(Masalan: 10 litr suvga 2 gramm eritib, kechqurun purkang. 7 kunda bir marta.)_",
+                    "✅ Foydalari saqlandi.\n\n" +
+                    "📋 *Ishlatilishi* — mahsulotni qanday ishlatish kerak?\n" +
+                    "_(Masalan: 10 litr suvga 2 gramm eritib, kechqurun purkang. Har 7 kunda bir marta.)_",
                     parseMode: ParseMode.Markdown, cancellationToken: ct);
                 break;
 
@@ -345,9 +365,25 @@ public class TelegramUpdateHandler(
                         "Yo'riqnoma juda qisqa. Qaytadan yozing:", cancellationToken: ct);
                     return;
                 }
-                _addProductStates[chatId] = state with { Step = "awaiting_price", UsageInstructions = text };
+                _addProductStates[chatId] = state with { Step = "awaiting_details", UsageInstructions = text };
                 await botClient.SendMessage(chatId,
-                    "✅ Yo'riqnoma saqlandi.\n\nNarxini yozing (so'mda):\n_(Masalan: 45000)_",
+                    "✅ Ishlatilishi saqlandi.\n\n" +
+                    "📝 *Mahsulot haqida batafsil ma'lumot* — ishlab chiqaruvchi, tarkibi, toifasi va boshqalar:\n" +
+                    "_(Masalan: Ishlab chiqaruvchi: Syngenta AG. Tarkibi: Thiamethoxam 25%. Toifasi: Neonikotinoid insektitsid.)_",
+                    parseMode: ParseMode.Markdown, cancellationToken: ct);
+                break;
+
+            case "awaiting_details":
+                if (text.Length < 5)
+                {
+                    await botClient.SendMessage(chatId,
+                        "Ma'lumot juda qisqa. Qaytadan yozing:", cancellationToken: ct);
+                    return;
+                }
+                _addProductStates[chatId] = state with { Step = "awaiting_price", Details = text };
+                await botClient.SendMessage(chatId,
+                    "✅ Batafsil ma'lumot saqlandi.\n\n" +
+                    "💰 *Narxini yozing* (so'mda):\n_(Masalan: 45000)_",
                     parseMode: ParseMode.Markdown, cancellationToken: ct);
                 break;
 
@@ -359,20 +395,8 @@ public class TelegramUpdateHandler(
                         cancellationToken: ct);
                     return;
                 }
-                _addProductStates[chatId] = state with { Step = "awaiting_photo", Price = price };
-                await botClient.SendMessage(chatId,
-                    $"✅ Narx: *{price:N0} so'm*\n\nMahsulot rasmini yuboring.\n_(Rasm yo'q bo'lsa /skip yozing)_",
-                    parseMode: ParseMode.Markdown, cancellationToken: ct);
-                break;
-
-            case "awaiting_photo":
-                // text message in photo step = /skip or invalid
-                if (text.Equals("/skip", StringComparison.OrdinalIgnoreCase) || text.Equals("skip", StringComparison.OrdinalIgnoreCase))
-                    await SaveProductAsync(chatId, state, imageUrl: null, from, ct);
-                else
-                    await botClient.SendMessage(chatId,
-                        "Rasm yuboring yoki /skip yozing (rasmsiz saqlash).",
-                        cancellationToken: ct);
+                _addProductStates[chatId] = state with { Price = price };
+                await SaveProductAsync(chatId, _addProductStates[chatId], from, ct);
                 break;
         }
     }
@@ -380,14 +404,19 @@ public class TelegramUpdateHandler(
     private async Task HandleAddProductPhotoAsync(
         long chatId, PhotoSize[] photos, AddProductState state, TelegramUser? from, CancellationToken ct)
     {
-        // Largest photo = last element
+        // Largest photo = last element; store as Telegram file ID URL
         var fileId   = photos[^1].FileId;
         var imageUrl = $"tg:{fileId}";
-        await SaveProductAsync(chatId, state, imageUrl, from, ct);
+        _addProductStates[chatId] = state with { Step = "awaiting_benefits", ImageUrl = imageUrl };
+        await botClient.SendMessage(chatId,
+            "✅ Rasm saqlandi.\n\n" +
+            "🌿 *Foydalari* — bu mahsulot qanday muammolarni hal qiladi?\n" +
+            "_(Masalan: Shiralar, trips va oq kapalakka qarshi. Pomidor, bodring, bug'doyda ishlaydi)_",
+            parseMode: ParseMode.Markdown, cancellationToken: ct);
     }
 
     private async Task SaveProductAsync(
-        long chatId, AddProductState state, string? imageUrl, TelegramUser? from, CancellationToken ct)
+        long chatId, AddProductState state, TelegramUser? from, CancellationToken ct)
     {
         _addProductStates.TryRemove(chatId, out _);
 
@@ -396,22 +425,32 @@ public class TelegramUpdateHandler(
 
         try
         {
+            // Combine benefits + detailed info into description
+            var description = string.IsNullOrWhiteSpace(state.Details)
+                ? state.Benefits!
+                : $"{state.Benefits}\n\n---\n\n{state.Details}";
+
             var product = await mediator.Send(new CreateProductCommand(
                 Name:               state.Name!,
-                Description:        state.Description!,
+                Description:        description,
                 UsageInstructions:  state.UsageInstructions!,
                 Price:              state.Price,
                 Currency:           "UZS",
-                ImageUrl:           imageUrl,
+                ImageUrl:           state.ImageUrl,
                 CreatedById:        user.Id), ct);
 
-            var photoStatus = imageUrl != null ? "📸 Rasm: saqlandi" : "📸 Rasm: yo'q";
+            // Auto-index product knowledge into RAG so farmers get AI recommendations
+            await AutoIndexProductKnowledgeAsync(product, state, user.Id, ct);
+
+            var photoStatus = state.ImageUrl != null ? "📸 Rasm: saqlandi" : "📸 Rasm: yo'q";
             await botClient.SendMessage(chatId,
                 $"✅ *Mahsulot qo'shildi!*\n\n" +
                 $"📦 Nom: *{EscapeMarkdown(product.Name)}*\n" +
                 $"💰 Narx: *{product.Price:N0} so'm*\n" +
                 $"{photoStatus}\n\n" +
-                "Dehqonlarga AI orqali tavsiya qilinadi.\n/myproducts — mahsulotlarim",
+                "⏳ AI bilim bazasiga indekslanmoqda...\n" +
+                "Dehqonlar o'z muammolarini yozganda shu mahsulot tavsiya qilinadi.\n\n" +
+                "/myproducts — mahsulotlarim",
                 parseMode: ParseMode.Markdown, cancellationToken: ct);
         }
         catch (Exception ex)
@@ -420,6 +459,40 @@ public class TelegramUpdateHandler(
             await botClient.SendMessage(chatId,
                 "❌ Mahsulotni saqlashda xatolik. /addproduct — qayta urinib ko'ring.",
                 cancellationToken: ct);
+        }
+    }
+
+    private async Task AutoIndexProductKnowledgeAsync(
+        ProductDto product, AddProductState state, Guid userId, CancellationToken ct)
+    {
+        try
+        {
+            var knowledge = await mediator.Send(new CreateKnowledgeEntryCommand(
+                Title:                   product.Name,
+                CropName:                "Umumiy",
+                ProblemName:             product.Name,
+                Category:                ProblemCategory.Other,
+                Symptoms:                state.Benefits!,
+                DetailedExplanation:     string.IsNullOrWhiteSpace(state.Details)
+                                             ? state.Benefits!
+                                             : $"{state.Benefits}\n\n{state.Details}",
+                RecommendedProducts:     product.Name,
+                DosagePerHectare:        "Mahsulot ko'rsatmasiga qarang",
+                ApplicationInstructions: state.UsageInstructions!,
+                SafetyPrecautions:       "",
+                Language:                Language.Uzbek,
+                Tags:                    new[] { "mahsulot", product.Name.ToLower() }), ct);
+
+            await mediator.Send(new PublishKnowledgeEntryCommand(knowledge.Id), ct);
+
+            logger.LogInformation(
+                "Product knowledge auto-indexed: {ProductName} → KnowledgeEntry {KnowledgeId}",
+                product.Name, knowledge.Id);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to auto-index product knowledge for {ProductName}", product.Name);
+            // Product was saved successfully — knowledge indexing failure is non-fatal
         }
     }
 
