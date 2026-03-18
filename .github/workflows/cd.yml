@@ -372,6 +372,19 @@ jobs:
                 --non-interactive --agree-tos \
                 -m "\${CERTBOT_EMAIL}" \
                 --keep-until-expiring 2>&1 | tail -5 || true
+
+            # Certbot creates <domain>-0001 when a self-signed cert already occupies
+            # <domain>/. Copy the real cert files over the self-signed placeholder so
+            # nginx always finds the cert at the path in its config.
+            docker run --rm -v certbot_staging_certs:/etc/letsencrypt alpine sh -c \
+              "if [ -d /etc/letsencrypt/live/\${NGINX_DOMAIN}-0001 ]; then
+                 cp -L /etc/letsencrypt/live/\${NGINX_DOMAIN}-0001/fullchain.pem \
+                        /etc/letsencrypt/live/\${NGINX_DOMAIN}/fullchain.pem
+                 cp -L /etc/letsencrypt/live/\${NGINX_DOMAIN}-0001/privkey.pem \
+                        /etc/letsencrypt/live/\${NGINX_DOMAIN}/privkey.pem
+                 echo 'Real cert copied from -0001 to \${NGINX_DOMAIN}'
+               fi" 2>/dev/null || true
+
             docker exec aqlliagronom-nginx nginx -s reload 2>/dev/null || true
           fi
           echo "==> https://\${NGINX_DOMAIN} ready"
