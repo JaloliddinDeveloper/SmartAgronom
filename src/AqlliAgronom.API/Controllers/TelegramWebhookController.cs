@@ -37,7 +37,7 @@ public class TelegramWebhookController(
             using var reader = new StreamReader(Request.Body);
             var json = await reader.ReadToEndAsync(ct);
             update = JsonSerializer.Deserialize<Update>(json,
-                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower });
         }
         catch (Exception ex)
         {

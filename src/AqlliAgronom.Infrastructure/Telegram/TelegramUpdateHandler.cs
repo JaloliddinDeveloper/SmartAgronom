@@ -406,16 +406,7 @@ public class TelegramUpdateHandler(
     private async Task HandleAddProductPhotoAsync(
         long chatId, PhotoSize[] photos, AddProductState state, TelegramUser? from, CancellationToken ct)
     {
-        // Debug: log all PhotoSize entries to diagnose Telegram.Bot v22 deserialization
-        logger.LogInformation("Photo update: {Count} sizes received for chat {ChatId}", photos.Length, chatId);
-        for (var i = 0; i < photos.Length; i++)
-        {
-            var p = photos[i];
-            logger.LogInformation("  Photo[{I}]: FileId={FileId} UniqueId={UniqueId} W={W} H={H} Size={Size}",
-                i, p.FileId ?? "NULL", p.FileUniqueId ?? "NULL", p.Width, p.Height, p.FileSize);
-        }
-
-        // Pick the largest photo that has a valid FileId (Telegram.Bot v22 may leave FileId null on some sizes)
+        // Pick the largest photo that has a valid FileId
         var bestPhoto = photos
             .Where(p => !string.IsNullOrEmpty(p.FileId))
             .OrderByDescending(p => p.Width * p.Height)
