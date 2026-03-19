@@ -41,6 +41,12 @@ public class SendChatMessageCommandHandler(
                 Content: m.Content))
             .ToList();
 
+        // Persist user message before the long-running RAG call.
+        // Without this, the 40-60 s RAG window causes EF's DbContext to produce
+        // a DbUpdateConcurrencyException on the final SaveChanges because the
+        // change-tracker state becomes stale relative to what was actually committed.
+        await uow.SaveChangesAsync(ct);
+
         // Build RAG context
         var pipelineContext = new RagPipelineContext
         {
@@ -56,10 +62,6 @@ public class SendChatMessageCommandHandler(
 
         // Record AI response in session
         session.AddMessage(result.Response, MessageRole.Assistant, result.TotalTokensUsed);
-
-        // session is already tracked by EF — do not call Update() as it would
-        // mark newly-added ConversationMessage entities as Modified (not Added),
-        // causing DbUpdateConcurrencyException when EF tries to UPDATE non-existent rows.
         await uow.SaveChangesAsync(ct);
 
         logger.LogInformation(
