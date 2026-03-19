@@ -5,7 +5,7 @@ namespace AqlliAgronom.Application.AI.Pipeline.Steps;
 
 public class PromptAssemblyStep : IRagStep
 {
-    public int Order => 4;
+    public int Order => 5;
 
     public Task ExecuteAsync(RagPipelineContext context, CancellationToken ct)
     {
@@ -31,6 +31,19 @@ public class PromptAssemblyStep : IRagStep
             6. If you need more information, ask ONE short clarifying question.
             7. Do NOT use large tables, long lists, or section headers. Write in plain, friendly sentences a farmer can understand.
             """);
+
+        // Inject the exact list of products available in the store
+        if (context.AvailableProducts.Count > 0)
+        {
+            sb.AppendLine("\n--- AVAILABLE PRODUCTS IN OUR STORE (you may ONLY recommend these) ---");
+            foreach (var name in context.AvailableProducts)
+                sb.AppendLine($"- {name}");
+            sb.AppendLine("--- END OF PRODUCT LIST ---");
+        }
+        else
+        {
+            sb.AppendLine("\nNote: There are currently no products in our store. Do not recommend any products.");
+        }
 
         // Inject retrieved knowledge context
         if (context.RankedChunks.Count > 0)

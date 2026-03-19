@@ -16,6 +16,7 @@ public class RagPipelineContext
     public float[]? QueryEmbedding { get; set; }
     public IReadOnlyList<RetrievedKnowledgeChunk> RetrievedChunks { get; set; } = [];
     public IReadOnlyList<RetrievedKnowledgeChunk> RankedChunks { get; set; } = [];
+    public IReadOnlyList<string> AvailableProducts { get; set; } = [];
     public string AssembledSystemPrompt { get; set; } = string.Empty;
     public IReadOnlyList<ConversationTurn> RecentHistory { get; set; } = [];
     public string FinalResponse { get; set; } = string.Empty;

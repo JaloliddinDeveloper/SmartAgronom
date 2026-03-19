@@ -707,12 +707,7 @@ public class TelegramUpdateHandler(
             var product = matches.FirstOrDefault();
 
             if (product is null)
-            {
-                await botClient.SendMessage(chatId,
-                    $"💊 *{EscapeMarkdown(name)}* — tavsiya etilgan mahsulot.",
-                    parseMode: ParseMode.Markdown, cancellationToken: ct);
-                continue;
-            }
+                continue; // Bazada yo'q mahsulotni ko'rsatmaymiz
 
             var buttons = new InlineKeyboardMarkup(new[]
             {

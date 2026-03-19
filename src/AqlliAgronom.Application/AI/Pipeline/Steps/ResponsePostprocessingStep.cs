@@ -4,7 +4,7 @@ namespace AqlliAgronom.Application.AI.Pipeline.Steps;
 
 public class ResponsePostprocessingStep : IRagStep
 {
-    public int Order => 5;
+    public int Order => 6;
 
     private static readonly Regex ProductTagRegex =
         new(@"\[\[([^\]]+)\]\]", RegexOptions.Compiled);

@@ -30,11 +30,12 @@ public static class DependencyInjection
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
 
         // RAG pipeline steps (ordered)
-        services.AddTransient<IRagStep, QueryPreprocessingStep>();
-        services.AddTransient<IRagStep, VectorRetrievalStep>();
-        services.AddTransient<IRagStep, ContextRankingStep>();
-        services.AddTransient<IRagStep, PromptAssemblyStep>();
-        services.AddTransient<IRagStep, ResponsePostprocessingStep>();
+        services.AddTransient<IRagStep, QueryPreprocessingStep>();      // Order 1
+        services.AddTransient<IRagStep, VectorRetrievalStep>();         // Order 2
+        services.AddTransient<IRagStep, ContextRankingStep>();          // Order 3
+        services.AddTransient<IRagStep, ProductInjectionStep>();        // Order 4
+        services.AddTransient<IRagStep, PromptAssemblyStep>();          // Order 5
+        services.AddTransient<IRagStep, ResponsePostprocessingStep>();  // Order 6
 
         return services;
     }
