@@ -33,6 +33,7 @@ public class TelegramUpdateHandler(
     IProductRepository productRepository,
     IOrderRepository orderRepository,
     IFileStorageService fileStorage,
+    IHttpClientFactory httpClientFactory,
     ILogger<TelegramUpdateHandler> logger)
     : IUpdateHandler
 {
@@ -746,12 +747,24 @@ public class TelegramUpdateHandler(
     private async Task SendProductWithImageAsync(
         long chatId, string imageUrl, string caption, InlineKeyboardMarkup buttons, CancellationToken ct)
     {
-        // Legacy support: old entries stored as "tg:{fileId}", new ones are real HTTP URLs
-        InputFile photo = imageUrl.StartsWith("tg:")
-            ? InputFile.FromFileId(imageUrl[3..])
-            : InputFile.FromUri(imageUrl);
+        // Legacy: old entries stored as "tg:{fileId}" — use directly
+        if (imageUrl.StartsWith("tg:"))
+        {
+            var photo = InputFile.FromFileId(imageUrl[3..]);
+            await botClient.SendPhoto(chatId, photo, caption: caption,
+                parseMode: ParseMode.Markdown, replyMarkup: buttons, cancellationToken: ct);
+            return;
+        }
 
-        await botClient.SendPhoto(chatId, photo, caption: caption,
+        // New entries: HTTP URL — download bytes and stream to Telegram.
+        // Streaming is more reliable than InputFile.FromUri() which requires
+        // Telegram servers to download directly from our URL.
+        var http = httpClientFactory.CreateClient();
+        var bytes = await http.GetByteArrayAsync(imageUrl, ct);
+        using var stream = new MemoryStream(bytes);
+        var fileName = Path.GetFileName(new Uri(imageUrl).LocalPath);
+        var photoFromStream = InputFile.FromStream(stream, string.IsNullOrEmpty(fileName) ? "photo.jpg" : fileName);
+        await botClient.SendPhoto(chatId, photoFromStream, caption: caption,
             parseMode: ParseMode.Markdown, replyMarkup: buttons, cancellationToken: ct);
     }
 
