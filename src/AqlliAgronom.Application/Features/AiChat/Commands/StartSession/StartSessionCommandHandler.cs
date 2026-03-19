@@ -10,13 +10,19 @@ public class StartSessionCommandHandler(IUnitOfWork uow)
 {
     public async Task<SessionDto> Handle(StartSessionCommand request, CancellationToken ct)
     {
-        // Reuse active session if exists
+        // Reuse active session only if it belongs to the same user.
+        // A stale session (different userId) is closed and replaced.
         var existing = await uow.FarmerSessions
             .GetActiveSessionByTelegramAsync(request.TelegramChatId, ct);
 
         if (existing is not null)
         {
-            return MapToDto(existing);
+            if (existing.UserId == request.UserId)
+                return MapToDto(existing);
+
+            // Stale session from a different user — close it before creating a new one
+            existing.Close();
+            await uow.SaveChangesAsync(ct);
         }
 
         var session = FarmerSession.Start(request.UserId, request.TelegramChatId);
