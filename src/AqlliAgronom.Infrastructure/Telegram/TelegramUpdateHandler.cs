@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using AqlliAgronom.Application.Features.AiChat.Commands.SendChatMessage;
 using AqlliAgronom.Application.Features.AiChat.Commands.StartSession;
 using AqlliAgronom.Application.Features.AiChat.DTOs;
@@ -23,6 +23,7 @@ using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 using Telegram.Bot.Types.ReplyMarkups;
 using TelegramUser = Telegram.Bot.Types.User;
+using DomainUser = AqlliAgronom.Domain.Entities.User;
 
 namespace AqlliAgronom.Infrastructure.Telegram;
 
@@ -615,37 +616,45 @@ public class TelegramUpdateHandler(
         await PromoteUserAsync(chatId, phone, ct);
     }
 
-    private async Task PromoteUserAsync(long chatId, string phone, CancellationToken ct)
+    private async Task PromoteUserAsync(long chatId, string input, CancellationToken ct)
     {
+        DomainUser? target;
+        if (input.StartsWith("@"))
+            target = await userRepository.FindByTelegramUsernameAsync(input, ct);
+        else
+            target = await userRepository.FindByPhoneAsync(input, ct);
+
+        if (target is null)
+        {
+            var hint = input.StartsWith("@")
+                ? "Bu foydalanuvchi botda royxatdan otmagan yoki username notogri."
+                : "Bu telefon raqam royxatda yoq. Foydalanuvchi avval /start bosishi kerak.";
+            await botClient.SendMessage(chatId,
+                $"Foydalanuvchi topilmadi: {EscapeMarkdown(input)}\n{hint}",
+                cancellationToken: ct);
+            return;
+        }
+
         try
         {
-            var fullName = await mediator.Send(new PromoteToAgronomiystCommand(phone), ct);
+            var fullName = await mediator.Send(new PromoteToAgronomiystCommand(target.Phone.Value), ct);
             await botClient.SendMessage(chatId,
-                $"✅ *{EscapeMarkdown(fullName)}* agronomiystga aylantirилди!\n" +
-                $"Telefon: `{EscapeMarkdown(phone)}`\n\n" +
-                "Endi u /addproduct va /orders buyruqlaridan foydalana oladi.",
-                parseMode: ParseMode.Markdown, cancellationToken: ct);
+                $"{EscapeMarkdown(fullName)} agronomiystga aylantirIldi! Telefon: {EscapeMarkdown(target.Phone.Value)}",
+                cancellationToken: ct);
 
-            // Notify the promoted user if they're in Telegram
-            var promoted = await userRepository.FindByPhoneAsync(phone, ct);
-            if (promoted?.TelegramChatId is { } tid)
+            if (target.TelegramChatId is { } tid)
             {
                 await botClient.SendMessage(tid,
-                    "🎉 Siz *agronomiyst* sifatida tasdiqlandi!\n\n" +
-                    "Yangi buyruqlar:\n" +
-                    "/addproduct — mahsulot qo'shish\n" +
-                    "/myproducts — mahsulotlarim\n" +
-                    "/orders — buyurtmalar",
-                    parseMode: ParseMode.Markdown, cancellationToken: ct);
+                    "Siz agronomiyst sifatida tasdiqlandi!\nYangi buyruqlar:\n/addproduct - mahsulot qoshish\n/myproducts - mahsulotlarim\n/orders - buyurtmalar",
+                    cancellationToken: ct);
             }
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Promote failed for phone {Phone}", phone);
+            logger.LogWarning(ex, "Promote failed for {Input}", input);
             await botClient.SendMessage(chatId,
-                $"❌ Foydalanuvchi topilmadi: `{EscapeMarkdown(phone)}`\n" +
-                "Telefon raqam to'g'ri ekanligini tekshiring.",
-                parseMode: ParseMode.Markdown, cancellationToken: ct);
+                "Promote qilishda xatolik yuz berdi. Qayta urinib koring.",
+                cancellationToken: ct);
         }
     }
 

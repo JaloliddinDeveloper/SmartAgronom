@@ -17,6 +17,14 @@ public class UserRepository(ApplicationDbContext dbContext)
     public async Task<User?> FindByTelegramChatIdAsync(long chatId, CancellationToken ct = default)
         => await DbSet.FirstOrDefaultAsync(u => u.TelegramChatId == chatId, ct);
 
+    public async Task<User?> FindByTelegramUsernameAsync(string username, CancellationToken ct = default)
+    {
+        var normalized = username.TrimStart('@').ToLowerInvariant();
+        return await DbSet.FirstOrDefaultAsync(
+            u => u.TelegramUsername != null &&
+                 u.TelegramUsername.ToLower() == normalized, ct);
+    }
+
     public async Task<bool> PhoneExistsAsync(string phone, CancellationToken ct = default)
         => await DbSet.AnyAsync(u => u.Phone.Value == phone, ct);
 
