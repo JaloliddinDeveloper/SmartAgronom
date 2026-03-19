@@ -15,6 +15,9 @@ public class UnitOfWork(ApplicationDbContext dbContext) : IUnitOfWork
     public IProductRepository Products { get; } = new ProductRepository(dbContext);
     public IOrderRepository Orders { get; } = new OrderRepository(dbContext);
 
+    public void Add<T>(T entity) where T : class
+        => dbContext.Set<T>().Add(entity);
+
     public async Task<int> SaveChangesAsync(CancellationToken ct = default)
         => await dbContext.SaveChangesAsync(ct);
 

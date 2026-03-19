@@ -28,8 +28,12 @@ public class SendChatMessageCommandHandler(
         var user = await uow.Users.GetByIdAsync(request.UserId, ct)
             ?? throw new NotFoundException(nameof(Domain.Entities.User), request.UserId);
 
-        // Record user message in session
-        session.AddMessage(request.Message, MessageRole.User);
+        // Record user message in session and explicitly track as Added.
+        // EF Core 8 discovers entities in PropertyAccessMode.Field navigations during
+        // DetectChanges but may assign Unchanged state (not Added) to entities with
+        // non-sentinel Guid PKs, causing UPDATE→0 rows→DbUpdateConcurrencyException.
+        var userMessage = session.AddMessage(request.Message, MessageRole.User);
+        uow.Add(userMessage);
 
         // Build conversation history for context (last 10 turns)
         var history = session.Messages
@@ -60,8 +64,9 @@ public class SendChatMessageCommandHandler(
         // Execute full RAG pipeline: preprocess → embed → search → rank → prompt → generate → postprocess
         var result = await ragPipeline.ExecuteAsync(pipelineContext, ct);
 
-        // Record AI response in session
-        session.AddMessage(result.Response, MessageRole.Assistant, result.TotalTokensUsed);
+        // Record AI response in session (same explicit tracking fix)
+        var aiMessage = session.AddMessage(result.Response, MessageRole.Assistant, result.TotalTokensUsed);
+        uow.Add(aiMessage);
         await uow.SaveChangesAsync(ct);
 
         logger.LogInformation(
