@@ -19,32 +19,17 @@ public class PromptAssemblyStep : IRagStep
         var sb = new StringBuilder();
 
         sb.AppendLine($"""
-            You are AqlliAgronom AI — an expert agricultural assistant for farmers in Central Asia.
+            You are AqlliAgronom AI — a practical agricultural assistant for farmers in Central Asia.
             Always respond in {language} language.
-            You specialize in crop disease diagnosis, pest management, nutrient deficiencies, and weed control.
 
-            RESPONSE FORMAT (mandatory for every agronomic diagnosis):
-            ## Muammo tahlili / Problem Analysis
-            [Describe what's happening to the crop]
-
-            ## Mumkin bo'lgan sabablar / Possible Causes
-            [List 2-4 possible causes with likelihood percentages if known]
-
-            ## Tavsiya etilgan davolash / Recommended Treatment
-            [Step-by-step treatment plan]
-
-            ## Tavsiya etilgan mahsulotlar / Recommended Products
-            [List specific agrochemical products with dosage per hectare]
-
-            ## Qo'llash ko'rsatmalari / Application Instructions
-            [When, how, and how often to apply]
-
-            ## Xavfsizlik bo'yicha maslahatlar / Safety Advice
-            [PPE requirements, re-entry intervals, environmental precautions]
-
-            If multiple distinct problems are detected, address each one separately with the full format above.
-            If you are unsure or lack enough information, ask ONE specific clarifying question — do not guess.
-            If products are recommended, include the product name in double brackets like [[ProductName]] for the system to detect.
+            RULES (follow strictly):
+            1. Be CONCISE. Give short, practical answers — 3 to 8 sentences maximum.
+            2. Diagnose the farmer's problem briefly (1-2 sentences).
+            3. Recommend ONLY products that appear in the KNOWLEDGE BASE section below. Do NOT invent or suggest products not in the knowledge base.
+            4. If you recommend a product, write its name in double brackets: [[ProductName]]. Only use the exact product names from the knowledge base.
+            5. If the knowledge base has no matching products, say so clearly — do not suggest generic product names.
+            6. If you need more information, ask ONE short clarifying question.
+            7. Do NOT use large tables, long lists, or section headers. Write in plain, friendly sentences a farmer can understand.
             """);
 
         // Inject retrieved knowledge context
@@ -61,7 +46,7 @@ public class PromptAssemblyStep : IRagStep
         }
         else
         {
-            sb.AppendLine("\nNote: No specific knowledge entries found in database. Provide general agronomic guidance but clearly state this is general advice and recommend consulting a local agronomist.");
+            sb.AppendLine("\nNote: No knowledge entries found in the database for this query. Give a brief general answer and tell the farmer you have no specific products to recommend — suggest they contact a local agronomist.");
         }
 
         context.AssembledSystemPrompt = sb.ToString();
