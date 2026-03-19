@@ -435,19 +435,11 @@ public class TelegramUpdateHandler(
         }
 
         var fileId = bestPhoto.FileId!;
-        string? imageUrl = null;
-        try
-        {
-            imageUrl = await fileStorage.SaveTelegramPhotoAsync(fileId, ct);
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Failed to download photo {FileId} for chat {ChatId}", fileId, chatId);
-            await botClient.SendMessage(chatId,
-                "⚠️ Rasmni saqlashda xatolik. Davom etish uchun /skip yozing yoki qaytadan rasm yuboring.",
-                cancellationToken: ct);
-            return;
-        }
+
+        // Store Telegram file ID directly — most reliable for sending back via bot.
+        // Background: also save to disk for potential web serving (non-fatal if it fails).
+        var imageUrl = $"tg:{fileId}";
+        _ = Task.Run(() => fileStorage.SaveTelegramPhotoAsync(fileId, CancellationToken.None), CancellationToken.None);
 
         _addProductStates[chatId] = state with { Step = "awaiting_benefits", ImageUrl = imageUrl };
         await botClient.SendMessage(chatId,
