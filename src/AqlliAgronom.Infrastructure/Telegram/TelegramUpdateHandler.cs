@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using AqlliAgronom.Application.Features.AiChat.Commands.SendChatMessage;
 using AqlliAgronom.Application.Features.AiChat.Commands.StartSession;
+using AqlliAgronom.Application.Features.AiChat.DTOs;
 using AqlliAgronom.Application.Features.Auth.Commands.RegisterViaTelegram;
 using AqlliAgronom.Application.Features.Knowledge.Commands.CreateKnowledgeEntry;
 using AqlliAgronom.Application.Features.Knowledge.Commands.PublishKnowledgeEntry;
@@ -204,23 +205,34 @@ public class TelegramUpdateHandler(
         var session = await mediator.Send(new StartSessionCommand(user.Id, chatId), ct);
         await botClient.SendChatAction(chatId, ChatAction.Typing, cancellationToken: ct);
 
+        ChatResponseDto response;
         try
         {
-            var response = await mediator.Send(new SendChatMessageCommand(session.Id, text, user.Id), ct);
-
-            await botClient.SendMessage(chatId, response.Response,
-                parseMode: ParseMode.Markdown, cancellationToken: ct);
-
-            if (response.SuggestedProductNames.Count > 0)
-                await SendProductCardsAsync(chatId, response.SuggestedProductNames, ct);
+            response = await mediator.Send(new SendChatMessageCommand(session.Id, text, user.Id), ct);
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "AI chat error for chat {ChatId}", chatId);
+            logger.LogError(ex, "AI pipeline error [{ExType}] for chat {ChatId}: {Msg}",
+                ex.GetType().Name, chatId, ex.Message);
             await botClient.SendMessage(chatId,
                 "Kechirasiz, xatolik yuz berdi. Qayta urinib ko'ring.",
                 cancellationToken: ct);
+            return;
         }
+
+        try
+        {
+            await botClient.SendMessage(chatId, response.Response,
+                parseMode: ParseMode.Markdown, cancellationToken: ct);
+        }
+        catch (Exception)
+        {
+            // Telegram MarkdownV1 AI javobidagi formatlashni rad etgan bo'lishi mumkin — plain text qayta yuboramiz
+            await botClient.SendMessage(chatId, response.Response, cancellationToken: ct);
+        }
+
+        if (response.SuggestedProductNames.Count > 0)
+            await SendProductCardsAsync(chatId, response.SuggestedProductNames, ct);
     }
 
     // ── /start ────────────────────────────────────────────────────────────────
