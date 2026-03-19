@@ -10,7 +10,6 @@ public class FarmerSessionRepository(ApplicationDbContext dbContext)
 {
     public async Task<FarmerSession?> GetActiveSessionByTelegramAsync(long chatId, CancellationToken ct = default)
         => await DbSet
-            .Include(s => s.Messages)
             .FirstOrDefaultAsync(s =>
                 s.TelegramChatId == chatId &&
                 (s.Status == SessionStatus.Active || s.Status == SessionStatus.Idle), ct);
