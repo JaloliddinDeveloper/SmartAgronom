@@ -353,7 +353,11 @@ jobs:
           done
 
           if docker ps --format '{{.Names}}' | grep -q '^aqlliagronom-nginx\$'; then
-            echo "==> Reloading nginx config..."
+            echo "==> Updating nginx config and admin panel files..."
+            # Copy updated configs and admin files into running container
+            docker cp "\${NGINX_CONF_DIR}/." aqlliagronom-nginx:/etc/nginx/conf.d/
+            docker exec aqlliagronom-nginx mkdir -p /var/www/admin
+            docker cp "\${ADMIN_DIR}/index.html" aqlliagronom-nginx:/var/www/admin/index.html
             docker exec aqlliagronom-nginx nginx -s reload || true
           else
             docker stop aqlliagronom-nginx 2>/dev/null || true
