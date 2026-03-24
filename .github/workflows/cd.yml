@@ -352,29 +352,20 @@ jobs:
             fi
           done
 
-          if docker ps --format '{{.Names}}' | grep -q '^aqlliagronom-nginx\$'; then
-            echo "==> Updating nginx config and admin panel files..."
-            # Copy updated configs and admin files into running container
-            docker cp "\${NGINX_CONF_DIR}/." aqlliagronom-nginx:/etc/nginx/conf.d/
-            docker exec aqlliagronom-nginx mkdir -p /var/www/admin
-            docker cp "\${ADMIN_DIR}/index.html" aqlliagronom-nginx:/var/www/admin/index.html
-            docker exec aqlliagronom-nginx nginx -s reload || true
-          else
-            docker stop aqlliagronom-nginx 2>/dev/null || true
-            docker rm   aqlliagronom-nginx 2>/dev/null || true
-            echo "==> Starting nginx..."
-            docker run -d \
-              --name aqlliagronom-nginx \
-              --restart unless-stopped \
-              --network aqlliagronom-network \
-              -p 80:80 -p 443:443 \
-              -v "\${NGINX_CONF_DIR}:/etc/nginx/conf.d:ro" \
-              -v "\${ADMIN_DIR}:/var/www/admin:ro" \
-              -v certbot_staging_certs:/etc/letsencrypt:ro \
-              -v certbot_staging_www:/var/www/certbot:ro \
-              -v staging_uploads_data:/app/uploads:ro \
-              nginx:1.28-alpine
-          fi
+          echo "==> Restarting nginx with latest config and admin panel..."
+          docker stop aqlliagronom-nginx 2>/dev/null || true
+          docker rm   aqlliagronom-nginx 2>/dev/null || true
+          docker run -d \
+            --name aqlliagronom-nginx \
+            --restart unless-stopped \
+            --network aqlliagronom-network \
+            -p 80:80 -p 443:443 \
+            -v "\${NGINX_CONF_DIR}:/etc/nginx/conf.d:ro" \
+            -v "\${ADMIN_DIR}:/var/www/admin:ro" \
+            -v certbot_staging_certs:/etc/letsencrypt:ro \
+            -v certbot_staging_www:/var/www/certbot:ro \
+            -v staging_uploads_data:/app/uploads:ro \
+            nginx:1.28-alpine
 
           if [ -n "\${CERTBOT_EMAIL}" ]; then
             for DOMAIN in "\${NGINX_DOMAIN}" "\${ADMIN_DOMAIN}"; do
