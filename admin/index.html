@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AqlliAgronom — Admin</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    [x-cloak] { display: none !important; }
+    .table-row:hover { background-color: #f8fafc; }
+    .spinner { animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body class="bg-gray-100 min-h-screen font-sans">
+
+<!-- ===== LOGIN PAGE ===== -->
+<div id="loginPage" class="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-700 to-green-900">
+  <div class="bg-white rounded-2xl shadow-2xl p-10 w-full max-w-md">
+    <div class="text-center mb-8">
+      <div class="text-4xl mb-2">🌿</div>
+      <h1 class="text-2xl font-bold text-gray-800">AqlliAgronom</h1>
+      <p class="text-gray-500 text-sm mt-1">Admin Panel</p>
+    </div>
+    <div id="loginError" class="hidden bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 mb-4 text-sm"></div>
+    <form id="loginForm" class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Telefon raqam</label>
+        <input type="text" id="loginPhone" value="+998900000001" placeholder="+998901234567"
+          class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Parol</label>
+        <input type="password" id="loginPassword" value="Admin@12345"
+          class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none" />
+      </div>
+      <button type="submit" id="loginBtn"
+        class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2.5 rounded-lg transition-colors">
+        Kirish
+      </button>
+    </form>
+    <p class="text-center text-xs text-gray-400 mt-6">API: <span id="apiUrlDisplay" class="font-mono"></span></p>
+  </div>
+</div>
+
+<!-- ===== MAIN APP ===== -->
+<div id="mainApp" class="hidden">
+
+  <!-- Topbar -->
+  <header class="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between h-14">
+      <div class="flex items-center gap-2">
+        <span class="text-xl">🌿</span>
+        <span class="font-bold text-gray-800">AqlliAgronom</span>
+        <span class="text-gray-400 text-sm ml-1">/ Mahsulotlar</span>
+      </div>
+      <div class="flex items-center gap-3">
+        <span id="userInfo" class="text-sm text-gray-600"></span>
+        <button onclick="logout()" class="text-sm text-red-500 hover:text-red-700 font-medium">Chiqish</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+
+    <!-- Toolbar -->
+    <div class="flex flex-col sm:flex-row gap-3 mb-5">
+      <div class="flex-1 relative">
+        <svg class="absolute left-3 top-2.5 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+        </svg>
+        <input type="text" id="searchInput" placeholder="Mahsulot qidirish..."
+          class="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 outline-none" />
+      </div>
+      <select id="categoryFilter" class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 outline-none bg-white">
+        <option value="">Barcha kategoriyalar</option>
+        <option value="Pestitsid">Pestitsid</option>
+        <option value="Fungitsid">Fungitsid</option>
+        <option value="Herbitsid">Herbitsid</option>
+        <option value="O'g'it">O'g'it</option>
+        <option value="Insektitsid">Insektitsid</option>
+        <option value="Boshqa">Boshqa</option>
+      </select>
+      <button onclick="openCreateModal()"
+        class="bg-green-600 hover:bg-green-700 text-white text-sm font-medium px-4 py-2 rounded-lg flex items-center gap-2 transition-colors whitespace-nowrap">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+        </svg>
+        Yangi mahsulot
+      </button>
+    </div>
+
+    <!-- Stats bar -->
+    <div id="statsBar" class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5"></div>
+
+    <!-- Table -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      <div id="loadingSpinner" class="flex items-center justify-center py-16">
+        <svg class="spinner w-8 h-8 text-green-500" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+        </svg>
+      </div>
+      <div id="tableContainer" class="hidden overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="bg-gray-50 border-b border-gray-200 text-xs uppercase tracking-wider text-gray-500">
+              <th class="px-4 py-3 text-left">Rasm</th>
+              <th class="px-4 py-3 text-left">Nomi</th>
+              <th class="px-4 py-3 text-left">Kategoriya</th>
+              <th class="px-4 py-3 text-right">Narxi</th>
+              <th class="px-4 py-3 text-center">Sklad</th>
+              <th class="px-4 py-3 text-center">Holat</th>
+              <th class="px-4 py-3 text-right">Amallar</th>
+            </tr>
+          </thead>
+          <tbody id="productsTable"></tbody>
+        </table>
+      </div>
+      <div id="emptyState" class="hidden text-center py-16 text-gray-400">
+        <div class="text-4xl mb-3">📦</div>
+        <p class="font-medium">Mahsulot topilmadi</p>
+      </div>
+    </div>
+
+    <!-- Pagination -->
+    <div id="pagination" class="flex items-center justify-between mt-4 text-sm text-gray-600"></div>
+  </main>
+</div>
+
+<!-- ===== PRODUCT MODAL (Create / Edit) ===== -->
+<div id="productModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
+  <div class="flex items-start justify-center min-h-screen pt-10 px-4 pb-20">
+    <div class="fixed inset-0 bg-black/50" onclick="closeModal()"></div>
+    <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-6">
+      <div class="flex items-center justify-between mb-5">
+        <h2 id="modalTitle" class="text-lg font-bold text-gray-800"></h2>
+        <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <div id="modalError" class="hidden bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 mb-4 text-sm"></div>
+
+      <form id="productForm" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <input type="hidden" id="productId" />
+
+        <div class="sm:col-span-2">
+          <label class="block text-xs font-medium text-gray-600 mb-1">Nomi <span class="text-red-500">*</span></label>
+          <input type="text" id="fName" required maxlength="300"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 outline-none" />
+        </div>
+
+        <div class="sm:col-span-2">
+          <label class="block text-xs font-medium text-gray-600 mb-1">Tavsif <span class="text-red-500">*</span></label>
+          <textarea id="fDescription" required rows="3"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 outline-none resize-none"></textarea>
+        </div>
+
+        <div class="sm:col-span-2">
+          <label class="block text-xs font-medium text-gray-600 mb-1">Ishlatish yo'riqnomasi <span class="text-red-500">*</span></label>
+          <textarea id="fUsageInstructions" required rows="3"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 outline-none resize-none"></textarea>
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Ishlab chiqaruvchi</label>
+          <input type="text" id="fManufacturer" maxlength="200"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 outline-none" />
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Faol modda</label>
+          <input type="text" id="fActiveIngredient" maxlength="200"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 outline-none" />
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Kategoriya</label>
+          <select id="fCategory"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 outline-none bg-white">
+            <option value="">Tanlanmagan</option>
+            <option>Pestitsid</option>
+            <option>Fungitsid</option>
+            <option>Herbitsid</option>
+            <option>O'g'it</option>
+            <option>Insektitsid</option>
+            <option>Boshqa</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Rasm URL</label>
+          <input type="text" id="fImageUrl" maxlength="500" placeholder="https://..."
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 outline-none" />
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Narxi <span class="text-red-500">*</span></label>
+          <input type="number" id="fPrice" required min="0" step="100"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 outline-none" />
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Valyuta</label>
+          <select id="fCurrency"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 outline-none bg-white">
+            <option value="UZS">UZS</option>
+            <option value="USD">USD</option>
+          </select>
+        </div>
+
+        <div class="sm:col-span-2 flex justify-end gap-3 pt-2 border-t border-gray-100 mt-2">
+          <button type="button" onclick="closeModal()"
+            class="px-5 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+            Bekor qilish
+          </button>
+          <button type="submit" id="modalSaveBtn"
+            class="px-5 py-2 text-sm bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors flex items-center gap-2">
+            Saqlash
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ===== STOCK MODAL ===== -->
+<div id="stockModal" class="hidden fixed inset-0 z-50 flex items-center justify-center">
+  <div class="fixed inset-0 bg-black/50" onclick="closeStockModal()"></div>
+  <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+    <h2 class="text-lg font-bold text-gray-800 mb-4">Sklad yangilash</h2>
+    <p id="stockProductName" class="text-sm text-gray-500 mb-4"></p>
+    <div id="stockError" class="hidden bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 mb-4 text-sm"></div>
+    <input type="hidden" id="stockProductId" />
+    <div class="mb-4">
+      <label class="block text-xs font-medium text-gray-600 mb-1">Miqdor (dona)</label>
+      <input type="number" id="stockQuantity" min="0"
+        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 outline-none" />
+    </div>
+    <div class="flex justify-end gap-3">
+      <button onclick="closeStockModal()" class="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50">Bekor</button>
+      <button onclick="saveStock()" class="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg">Saqlash</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== DELETE CONFIRM ===== -->
+<div id="deleteModal" class="hidden fixed inset-0 z-50 flex items-center justify-center">
+  <div class="fixed inset-0 bg-black/50" onclick="closeDeleteModal()"></div>
+  <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+    <div class="text-center">
+      <div class="text-4xl mb-3">⚠️</div>
+      <h2 class="text-lg font-bold text-gray-800 mb-2">O'chirilsinmi?</h2>
+      <p id="deleteProductName" class="text-sm text-gray-500 mb-6"></p>
+      <div class="flex justify-center gap-3">
+        <button onclick="closeDeleteModal()" class="px-5 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50">Bekor</button>
+        <button onclick="confirmDelete()" class="px-5 py-2 text-sm bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg">O'chirish</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ── CONFIG ──────────────────────────────────────────────────────────────────
+  const API_BASE = 'https://agronom.fastergo.uz/api/v1';
+
+  // ── STATE ───────────────────────────────────────────────────────────────────
+  let token = localStorage.getItem('admin_token') || '';
+  let currentUser = JSON.parse(localStorage.getItem('admin_user') || 'null');
+  let currentPage = 1;
+  let totalPages = 1;
+  let searchTimer = null;
+  let deleteTargetId = null;
+
+  // ── INIT ────────────────────────────────────────────────────────────────────
+  document.getElementById('apiUrlDisplay').textContent = API_BASE;
+
+  if (token && currentUser) {
+    showApp();
+    loadProducts();
+  }
+
+  // ── AUTH ────────────────────────────────────────────────────────────────────
+  document.getElementById('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const phone = document.getElementById('loginPhone').value.trim();
+    const password = document.getElementById('loginPassword').value;
+    const btn = document.getElementById('loginBtn');
+    const err = document.getElementById('loginError');
+
+    btn.textContent = 'Kirilmoqda...';
+    btn.disabled = true;
+    err.classList.add('hidden');
+
+    try {
+      const res = await fetch(`${API_BASE}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, password })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || data.title || 'Xatolik yuz berdi');
+
+      token = data.data?.accessToken || data.accessToken;
+      currentUser = data.data || data;
+      localStorage.setItem('admin_token', token);
+      localStorage.setItem('admin_user', JSON.stringify(currentUser));
+      showApp();
+      loadProducts();
+    } catch (ex) {
+      err.textContent = ex.message;
+      err.classList.remove('hidden');
+    } finally {
+      btn.textContent = 'Kirish';
+      btn.disabled = false;
+    }
+  });
+
+  function logout() {
+    localStorage.removeItem('admin_token');
+    localStorage.removeItem('admin_user');
+    token = '';
+    currentUser = null;
+    document.getElementById('mainApp').classList.add('hidden');
+    document.getElementById('loginPage').classList.remove('hidden');
+  }
+
+  function showApp() {
+    document.getElementById('loginPage').classList.add('hidden');
+    document.getElementById('mainApp').classList.remove('hidden');
+    if (currentUser) {
+      document.getElementById('userInfo').textContent =
+        `${currentUser.fullName || ''} (${currentUser.role === 3 ? 'Admin' : 'Agronom'})`;
+    }
+  }
+
+  // ── API HELPER ───────────────────────────────────────────────────────────────
+  async function api(method, path, body = null) {
+    const opts = {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    };
+    if (body) opts.body = JSON.stringify(body);
+    const res = await fetch(`${API_BASE}${path}`, opts);
+    if (res.status === 401) { logout(); throw new Error('Sessiya tugadi'); }
+    if (res.status === 204) return null;
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || data.title || JSON.stringify(data.errors || data));
+    return data.data ?? data;
+  }
+
+  // ── PRODUCTS LIST ────────────────────────────────────────────────────────────
+  async function loadProducts(page = 1) {
+    currentPage = page;
+    const search = document.getElementById('searchInput').value.trim();
+    const category = document.getElementById('categoryFilter').value;
+
+    document.getElementById('loadingSpinner').classList.remove('hidden');
+    document.getElementById('tableContainer').classList.add('hidden');
+    document.getElementById('emptyState').classList.add('hidden');
+
+    try {
+      const params = new URLSearchParams({ page, pageSize: 20 });
+      if (search) params.append('search', search);
+      if (category) params.append('category', category);
+
+      const result = await api('GET', `/products?${params}`);
+      totalPages = result.totalPages || 1;
+
+      renderStats(result);
+      renderTable(result.items || []);
+      renderPagination(result);
+    } catch (ex) {
+      console.error(ex);
+    } finally {
+      document.getElementById('loadingSpinner').classList.add('hidden');
+    }
+  }
+
+  function renderStats(result) {
+    const items = result.items || [];
+    const available = items.filter(p => p.isAvailable).length;
+    document.getElementById('statsBar').innerHTML = `
+      <div class="bg-white rounded-lg border border-gray-200 p-4">
+        <p class="text-xs text-gray-500">Jami (sahifada)</p>
+        <p class="text-2xl font-bold text-gray-800">${result.totalCount ?? items.length}</p>
+      </div>
+      <div class="bg-white rounded-lg border border-gray-200 p-4">
+        <p class="text-xs text-gray-500">Mavjud</p>
+        <p class="text-2xl font-bold text-green-600">${available}</p>
+      </div>
+      <div class="bg-white rounded-lg border border-gray-200 p-4">
+        <p class="text-xs text-gray-500">Tugagan</p>
+        <p class="text-2xl font-bold text-red-500">${items.length - available}</p>
+      </div>
+      <div class="bg-white rounded-lg border border-gray-200 p-4">
+        <p class="text-xs text-gray-500">Sahifa</p>
+        <p class="text-2xl font-bold text-gray-800">${currentPage} / ${totalPages}</p>
+      </div>
+    `;
+  }
+
+  function renderTable(items) {
+    if (!items.length) {
+      document.getElementById('emptyState').classList.remove('hidden');
+      return;
+    }
+    document.getElementById('tableContainer').classList.remove('hidden');
+    document.getElementById('productsTable').innerHTML = items.map(p => `
+      <tr class="table-row border-b border-gray-100 last:border-0">
+        <td class="px-4 py-3">
+          ${p.imageUrl
+            ? `<img src="${escHtml(p.imageUrl)}" alt="" class="w-10 h-10 rounded-lg object-cover border border-gray-200" onerror="this.style.display='none'" />`
+            : `<div class="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center text-lg">📦</div>`}
+        </td>
+        <td class="px-4 py-3">
+          <p class="font-medium text-gray-800 truncate max-w-[200px]">${escHtml(p.name)}</p>
+        </td>
+        <td class="px-4 py-3">
+          <span class="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-full">${escHtml(p.category || '—')}</span>
+        </td>
+        <td class="px-4 py-3 text-right font-mono text-sm">
+          ${formatPrice(p.price, p.currency)}
+        </td>
+        <td class="px-4 py-3 text-center">
+          <button onclick="openStockModal('${p.id}', '${escHtml(p.name)}')"
+            class="text-sm font-mono hover:text-blue-600 transition-colors" title="Sklanni yangilash">
+            —
+          </button>
+        </td>
+        <td class="px-4 py-3 text-center">
+          ${p.isAvailable
+            ? `<span class="text-xs bg-green-50 text-green-700 px-2 py-1 rounded-full">Mavjud</span>`
+            : `<span class="text-xs bg-red-50 text-red-500 px-2 py-1 rounded-full">Tugagan</span>`}
+        </td>
+        <td class="px-4 py-3 text-right">
+          <div class="flex items-center justify-end gap-1">
+            <button onclick="openEditModal('${p.id}')"
+              class="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Tahrirlash">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+              </svg>
+            </button>
+            <button onclick="openStockModal('${p.id}', '${escHtml(p.name)}')"
+              class="p-1.5 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded transition-colors" title="Sklad">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+              </svg>
+            </button>
+            <button onclick="openDeleteModal('${p.id}', '${escHtml(p.name)}')"
+              class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors" title="O'chirish">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+              </svg>
+            </button>
+          </div>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  function renderPagination(result) {
+    const total = result.totalCount || 0;
+    const from = (currentPage - 1) * 20 + 1;
+    const to = Math.min(currentPage * 20, total);
+    document.getElementById('pagination').innerHTML = `
+      <span class="text-gray-500">${total > 0 ? `${from}–${to} / ${total} ta` : ''}</span>
+      <div class="flex gap-2">
+        <button onclick="loadProducts(${currentPage - 1})" ${currentPage <= 1 ? 'disabled' : ''}
+          class="px-3 py-1.5 rounded-lg border text-sm ${currentPage <= 1 ? 'text-gray-300 border-gray-200 cursor-not-allowed' : 'border-gray-300 hover:bg-gray-50'}">
+          ← Oldingi
+        </button>
+        <button onclick="loadProducts(${currentPage + 1})" ${currentPage >= totalPages ? 'disabled' : ''}
+          class="px-3 py-1.5 rounded-lg border text-sm ${currentPage >= totalPages ? 'text-gray-300 border-gray-200 cursor-not-allowed' : 'border-gray-300 hover:bg-gray-50'}">
+          Keyingi →
+        </button>
+      </div>
+    `;
+  }
+
+  // Search with debounce
+  document.getElementById('searchInput').addEventListener('input', () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => loadProducts(1), 400);
+  });
+  document.getElementById('categoryFilter').addEventListener('change', () => loadProducts(1));
+
+  // ── CREATE / EDIT MODAL ───────────────────────────────────────────────────────
+  function openCreateModal() {
+    document.getElementById('modalTitle').textContent = 'Yangi mahsulot qo\'shish';
+    document.getElementById('productId').value = '';
+    document.getElementById('productForm').reset();
+    document.getElementById('modalError').classList.add('hidden');
+    document.getElementById('productModal').classList.remove('hidden');
+  }
+
+  async function openEditModal(id) {
+    document.getElementById('modalTitle').textContent = 'Mahsulotni tahrirlash';
+    document.getElementById('modalError').classList.add('hidden');
+    document.getElementById('productModal').classList.remove('hidden');
+
+    try {
+      const p = await api('GET', `/products/${id}`);
+      document.getElementById('productId').value = p.id;
+      document.getElementById('fName').value = p.name || '';
+      document.getElementById('fDescription').value = p.description || '';
+      document.getElementById('fUsageInstructions').value = p.usageInstructions || '';
+      document.getElementById('fManufacturer').value = p.manufacturer || '';
+      document.getElementById('fActiveIngredient').value = p.activeIngredient || '';
+      document.getElementById('fCategory').value = p.category || '';
+      document.getElementById('fImageUrl').value = p.imageUrl || '';
+      document.getElementById('fPrice').value = p.price || '';
+      document.getElementById('fCurrency').value = p.currency || 'UZS';
+    } catch (ex) {
+      showModalError(ex.message);
+    }
+  }
+
+  function closeModal() {
+    document.getElementById('productModal').classList.add('hidden');
+  }
+
+  document.getElementById('productForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const id = document.getElementById('productId').value;
+    const btn = document.getElementById('modalSaveBtn');
+    document.getElementById('modalError').classList.add('hidden');
+    btn.disabled = true;
+    btn.textContent = 'Saqlanmoqda...';
+
+    const body = {
+      name: document.getElementById('fName').value.trim(),
+      description: document.getElementById('fDescription').value.trim(),
+      usageInstructions: document.getElementById('fUsageInstructions').value.trim(),
+      manufacturer: document.getElementById('fManufacturer').value.trim() || null,
+      activeIngredient: document.getElementById('fActiveIngredient').value.trim() || null,
+      category: document.getElementById('fCategory').value || null,
+      imageUrl: document.getElementById('fImageUrl').value.trim() || null,
+      price: parseFloat(document.getElementById('fPrice').value),
+      currency: document.getElementById('fCurrency').value,
+    };
+
+    try {
+      if (id) {
+        await api('PUT', `/products/${id}`, body);
+      } else {
+        await api('POST', '/products', body);
+      }
+      closeModal();
+      loadProducts(currentPage);
+    } catch (ex) {
+      showModalError(ex.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Saqlash';
+    }
+  });
+
+  function showModalError(msg) {
+    const el = document.getElementById('modalError');
+    el.textContent = msg;
+    el.classList.remove('hidden');
+  }
+
+  // ── STOCK MODAL ───────────────────────────────────────────────────────────────
+  function openStockModal(id, name) {
+    document.getElementById('stockProductId').value = id;
+    document.getElementById('stockProductName').textContent = name;
+    document.getElementById('stockQuantity').value = '';
+    document.getElementById('stockError').classList.add('hidden');
+    document.getElementById('stockModal').classList.remove('hidden');
+  }
+
+  function closeStockModal() {
+    document.getElementById('stockModal').classList.add('hidden');
+  }
+
+  async function saveStock() {
+    const id = document.getElementById('stockProductId').value;
+    const qty = parseInt(document.getElementById('stockQuantity').value);
+    const err = document.getElementById('stockError');
+    err.classList.add('hidden');
+
+    if (isNaN(qty) || qty < 0) {
+      err.textContent = 'Miqdor 0 yoki undan katta bo\'lishi kerak';
+      err.classList.remove('hidden');
+      return;
+    }
+
+    try {
+      await api('PUT', `/products/${id}/stock`, { quantity: qty });
+      closeStockModal();
+      loadProducts(currentPage);
+    } catch (ex) {
+      err.textContent = ex.message;
+      err.classList.remove('hidden');
+    }
+  }
+
+  // ── DELETE MODAL ───────────────────────────────────────────────────────────────
+  function openDeleteModal(id, name) {
+    deleteTargetId = id;
+    document.getElementById('deleteProductName').textContent = `"${name}" o'chirilsinmi? Bu amalni qaytarib bo'lmaydi.`;
+    document.getElementById('deleteModal').classList.remove('hidden');
+  }
+
+  function closeDeleteModal() {
+    deleteTargetId = null;
+    document.getElementById('deleteModal').classList.add('hidden');
+  }
+
+  async function confirmDelete() {
+    if (!deleteTargetId) return;
+    try {
+      await api('DELETE', `/products/${deleteTargetId}`);
+      closeDeleteModal();
+      loadProducts(currentPage);
+    } catch (ex) {
+      alert(ex.message);
+    }
+  }
+
+  // ── HELPERS ───────────────────────────────────────────────────────────────────
+  function formatPrice(amount, currency) {
+    if (!amount) return '—';
+    return new Intl.NumberFormat('uz-UZ').format(amount) + ' ' + (currency || 'UZS');
+  }
+
+  function escHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  // Close modals on Escape
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { closeModal(); closeStockModal(); closeDeleteModal(); }
+  });
+</script>
+</body>
+</html>
