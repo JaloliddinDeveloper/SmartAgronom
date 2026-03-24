@@ -145,22 +145,30 @@ try
         var adminChatIdStr = builder.Configuration["Seed:AdminTelegramChatId"];
         if (long.TryParse(adminChatIdStr, out var adminChatId) && adminChatId > 0)
         {
-            // Find admin user
             var adminUser = await db.Users.FirstOrDefaultAsync(u => u.Role == UserRole.Admin);
-            if (adminUser is not null && adminUser.TelegramChatId != adminChatId)
-            {
-                adminUser.LinkTelegram(adminChatId, null);
-                await db.SaveChangesAsync();
-                Log.Information("Admin TelegramChatId linked: {ChatId}", adminChatId);
-            }
 
-            // Also: if a user with this ChatId exists but is not Admin — promote them
+            // If this chat ID already belongs to another user — promote that user instead
             var userWithChatId = await db.Users.FirstOrDefaultAsync(u => u.TelegramChatId == adminChatId);
             if (userWithChatId is not null && userWithChatId.Role != UserRole.Admin)
             {
                 userWithChatId.AssignRole(UserRole.Admin);
                 await db.SaveChangesAsync();
                 Log.Information("User {UserId} promoted to Admin via AdminTelegramChatId", userWithChatId.Id);
+            }
+            else if (adminUser is not null && adminUser.TelegramChatId != adminChatId)
+            {
+                // Only link if no other user already owns this chat ID
+                var chatIdTaken = await db.Users.AnyAsync(u => u.TelegramChatId == adminChatId);
+                if (!chatIdTaken)
+                {
+                    adminUser.LinkTelegram(adminChatId, null);
+                    await db.SaveChangesAsync();
+                    Log.Information("Admin TelegramChatId linked: {ChatId}", adminChatId);
+                }
+                else
+                {
+                    Log.Warning("Seed: AdminTelegramChatId {ChatId} already assigned to another user — skipping link.", adminChatId);
+                }
             }
         }
     }
