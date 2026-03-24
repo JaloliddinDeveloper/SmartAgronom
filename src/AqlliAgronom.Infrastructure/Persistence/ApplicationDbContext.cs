@@ -1,5 +1,6 @@
 using AqlliAgronom.Domain.Common;
 using AqlliAgronom.Domain.Entities;
+using AqlliAgronom.Infrastructure.Identity;
 using AqlliAgronom.Infrastructure.Persistence.Interceptors;
 using Microsoft.EntityFrameworkCore;
 
@@ -12,6 +13,7 @@ public class ApplicationDbContext(
     : DbContext(options)
 {
     public DbSet<User> Users => Set<User>();
+    public DbSet<RefreshTokenRecord> RefreshTokens => Set<RefreshTokenRecord>();
     public DbSet<FarmerSession> FarmerSessions => Set<FarmerSession>();
     public DbSet<ConversationMessage> ConversationMessages => Set<ConversationMessage>();
     public DbSet<KnowledgeEntry> KnowledgeEntries => Set<KnowledgeEntry>();
