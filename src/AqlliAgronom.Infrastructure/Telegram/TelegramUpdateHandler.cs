@@ -1095,7 +1095,7 @@ public class TelegramUpdateHandler(
                 Language:               Language.Uzbek), ct);
 
             // Auto-publish so background job picks it up for indexing
-            await mediator.Send(new PublishKnowledgeEntryCommand(entry.Id), ct);
+            await mediator.Send(new PublishKnowledgeEntryCommand(entry.Id, user.Id), ct);
 
             await botClient.SendMessage(chatId,
                 $"✅ *Bilim bazasiga qo'shildi!*\n\n" +
