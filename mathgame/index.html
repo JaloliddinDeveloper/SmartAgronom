@@ -509,14 +509,41 @@
 
       <div class="welcome-stats" id="welcomeStats"></div>
 
-      <div class="name-form">
+      <!-- Returning player view (saved name) -->
+      <div id="returningView" style="display:none">
+        <div style="background:rgba(108,99,255,0.15);border:1px solid rgba(108,99,255,0.4);border-radius:16px;padding:16px 20px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between">
+          <div>
+            <div style="font-size:.75rem;color:rgba(255,255,255,.5);margin-bottom:2px">O'yinchi</div>
+            <div style="font-size:1.3rem;font-weight:800" id="savedNameDisplay"></div>
+          </div>
+          <button onclick="forgetPlayer()" style="background:none;border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:6px 12px;color:rgba(255,255,255,.5);font-size:.8rem;cursor:pointer">O'zgartirish</button>
+        </div>
+
+        <p style="color:rgba(255,255,255,0.6);font-size:0.9rem;margin-bottom:10px;">Qiyinlik darajasi:</p>
+        <div class="difficulty-row" id="diffRowReturning">
+          <div class="diff-btn active" data-diff="easy">
+            <span>🌱</span>Oson<br><small style="opacity:.6">1–20</small>
+          </div>
+          <div class="diff-btn" data-diff="medium">
+            <span>🔥</span>O'rta<br><small style="opacity:.6">1–50</small>
+          </div>
+          <div class="diff-btn" data-diff="hard">
+            <span>⚡</span>Qiyin<br><small style="opacity:.6">1–99</small>
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="startGame()">O'yinni Boshlash 🚀</button>
+        <button class="btn btn-outline" onclick="showLeaderboard()">🏆 Reyting Ko'rish</button>
+      </div>
+
+      <!-- New player view (enter name) -->
+      <div id="newPlayerView">
         <p style="color:rgba(255,255,255,0.6);font-size:0.9rem;margin-bottom:14px;">Ismingizni kiriting:</p>
         <div class="input-wrap">
           <input type="text" id="playerName" placeholder="Masalan: Asilbek" maxlength="20" autocomplete="off">
         </div>
 
         <p style="color:rgba(255,255,255,0.6);font-size:0.9rem;margin-bottom:10px;">Qiyinlik darajasi:</p>
-        <div class="difficulty-row">
+        <div class="difficulty-row" id="diffRowNew">
           <div class="diff-btn active" data-diff="easy">
             <span>🌱</span>Oson<br><small style="opacity:.6">1–20</small>
           </div>
@@ -895,11 +922,31 @@ function showLeaderboard() {
 // ═══════════════════════════════════════════
 document.querySelectorAll('.diff-btn').forEach(btn => {
   btn.addEventListener('click', () => {
+    // Sync both rows
     document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
+    document.querySelectorAll(`.diff-btn[data-diff="${btn.dataset.diff}"]`).forEach(b => b.classList.add('active'));
     state.difficulty = btn.dataset.diff;
   });
 });
+
+// ═══════════════════════════════════════════
+//  PLAYER PERSISTENCE
+// ═══════════════════════════════════════════
+const PLAYER_KEY = 'mathrace_player_v1';
+
+function getSavedPlayer() {
+  try { return JSON.parse(localStorage.getItem(PLAYER_KEY)); } catch(e) { return null; }
+}
+function savePlayer(name, difficulty) {
+  localStorage.setItem(PLAYER_KEY, JSON.stringify({ name, difficulty }));
+}
+function forgetPlayer() {
+  localStorage.removeItem(PLAYER_KEY);
+  document.getElementById('returningView').style.display  = 'none';
+  document.getElementById('newPlayerView').style.display  = '';
+  document.getElementById('playerName').value = '';
+  document.getElementById('playerName').focus();
+}
 
 // ═══════════════════════════════════════════
 //  WELCOME STATS
@@ -928,11 +975,20 @@ async function updateWelcomeStats() {
 // ═══════════════════════════════════════════
 function startGame(replay = false) {
   if (!replay) {
-    const nameInput = document.getElementById('playerName');
-    const name = nameInput.value.trim();
-    if (!name) { nameInput.focus(); nameInput.style.borderColor='#f64f59'; return; }
-    state.playerName = name;
-    state.difficulty = document.querySelector('.diff-btn.active').dataset.diff;
+    const saved = getSavedPlayer();
+    if (saved && document.getElementById('returningView').style.display !== 'none') {
+      // Returning player
+      state.playerName = saved.name;
+      state.difficulty = document.querySelector('#diffRowReturning .diff-btn.active')?.dataset.diff || saved.difficulty || 'easy';
+    } else {
+      // New player
+      const nameInput = document.getElementById('playerName');
+      const name = nameInput.value.trim();
+      if (!name) { nameInput.focus(); nameInput.style.borderColor='#f64f59'; return; }
+      state.playerName = name;
+      state.difficulty = document.querySelector('#diffRowNew .diff-btn.active')?.dataset.diff || 'easy';
+    }
+    savePlayer(state.playerName, state.difficulty);
   }
   state.score         = 0;
   state.correctCount  = 0;
@@ -1260,7 +1316,26 @@ document.addEventListener('keydown', e => {
 // ═══════════════════════════════════════════
 //  INIT
 // ═══════════════════════════════════════════
-updateWelcomeStats();
+(function init() {
+  const saved = getSavedPlayer();
+  if (saved && saved.name) {
+    // Returning player — show their name, hide new player form
+    state.playerName = saved.name;
+    document.getElementById('savedNameDisplay').textContent = saved.name;
+    document.getElementById('returningView').style.display = '';
+    document.getElementById('newPlayerView').style.display = 'none';
+    // Set saved difficulty active
+    const diff = saved.difficulty || 'easy';
+    document.querySelectorAll('.diff-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.diff === diff);
+    });
+    state.difficulty = diff;
+  } else {
+    document.getElementById('returningView').style.display = 'none';
+    document.getElementById('newPlayerView').style.display = '';
+  }
+  updateWelcomeStats();
+})();
 </script>
 </body>
 </html>
