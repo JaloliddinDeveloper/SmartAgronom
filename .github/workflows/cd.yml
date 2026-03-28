@@ -142,13 +142,13 @@ jobs:
           ssh-keyscan -H "${SSH_HOST}" >> ~/.ssh/known_hosts 2>/dev/null
           echo "SSH configured for ${SSH_HOST}"
 
-      - name: Copy nginx config and admin panel to staging server
+      - name: Copy nginx config, admin panel and math game to staging server
         env:
           SSH_HOST: ${{ secrets.STAGING_HOST }}
           SSH_USER: ${{ secrets.STAGING_USER }}
         run: |
           ssh -i ~/.ssh/deploy_key "${SSH_USER}@${SSH_HOST}" \
-            "mkdir -p /opt/aqlliagronom/staging/nginx /opt/aqlliagronom/staging/admin"
+            "mkdir -p /opt/aqlliagronom/staging/nginx /opt/aqlliagronom/staging/admin /opt/aqlliagronom/staging/mathgame"
           scp -i ~/.ssh/deploy_key \
             nginx/conf.d/staging.conf \
             "${SSH_USER}@${SSH_HOST}:/opt/aqlliagronom/staging/nginx/app.conf"
@@ -158,6 +158,9 @@ jobs:
           scp -i ~/.ssh/deploy_key \
             admin/index.html \
             "${SSH_USER}@${SSH_HOST}:/opt/aqlliagronom/staging/admin/index.html"
+          scp -i ~/.ssh/deploy_key \
+            mathgame/index.html \
+            "${SSH_USER}@${SSH_HOST}:/opt/aqlliagronom/staging/mathgame/index.html"
 
       - name: Deploy to staging via SSH
         env:
@@ -331,14 +334,16 @@ jobs:
           # ── Nginx + Certbot (SSL) ─────────────────────────────────────────────
           NGINX_DOMAIN="agronom.fastergo.uz"
           ADMIN_DOMAIN="admin.fastergo.uz"
+          MATH_DOMAIN="math.fastergo.uz"
           NGINX_CONF_DIR="/opt/aqlliagronom/staging/nginx"
           ADMIN_DIR="/opt/aqlliagronom/staging/admin"
+          MATH_DIR="/opt/aqlliagronom/staging/mathgame"
 
           docker volume create certbot_staging_certs 2>/dev/null || true
           docker volume create certbot_staging_www   2>/dev/null || true
 
-          # Generate temporary self-signed certs for both domains on first deploy
-          for DOMAIN in "\${NGINX_DOMAIN}" "\${ADMIN_DOMAIN}"; do
+          # Generate temporary self-signed certs for all domains on first deploy
+          for DOMAIN in "\${NGINX_DOMAIN}" "\${ADMIN_DOMAIN}" "\${MATH_DOMAIN}"; do
             if ! docker run --rm -v certbot_staging_certs:/etc/letsencrypt alpine \
                  test -f "/etc/letsencrypt/live/\${DOMAIN}/fullchain.pem" 2>/dev/null; then
               echo "==> Generating temporary self-signed cert for \${DOMAIN}..."
@@ -352,7 +357,7 @@ jobs:
             fi
           done
 
-          echo "==> Restarting nginx with latest config and admin panel..."
+          echo "==> Restarting nginx with latest config, admin panel and math game..."
           docker stop aqlliagronom-nginx 2>/dev/null || true
           docker rm   aqlliagronom-nginx 2>/dev/null || true
           docker run -d \
@@ -362,13 +367,14 @@ jobs:
             -p 80:80 -p 443:443 \
             -v "\${NGINX_CONF_DIR}:/etc/nginx/conf.d:ro" \
             -v "\${ADMIN_DIR}:/var/www/admin:ro" \
+            -v "\${MATH_DIR}:/var/www/mathgame:ro" \
             -v certbot_staging_certs:/etc/letsencrypt:ro \
             -v certbot_staging_www:/var/www/certbot:ro \
             -v staging_uploads_data:/app/uploads:ro \
             nginx:1.28-alpine
 
           if [ -n "\${CERTBOT_EMAIL}" ]; then
-            for DOMAIN in "\${NGINX_DOMAIN}" "\${ADMIN_DOMAIN}"; do
+            for DOMAIN in "\${NGINX_DOMAIN}" "\${ADMIN_DOMAIN}" "\${MATH_DOMAIN}"; do
               echo "==> Running certbot for \${DOMAIN}..."
               docker run --rm \
                 -v certbot_staging_certs:/etc/letsencrypt \
@@ -396,6 +402,7 @@ jobs:
           fi
           echo "==> https://\${NGINX_DOMAIN} ready"
           echo "==> https://\${ADMIN_DOMAIN} ready"
+          echo "==> https://\${MATH_DOMAIN} ready"
 
           docker image prune -f || true
           ENDSSH
@@ -458,22 +465,37 @@ jobs:
             echo "tag=${{ needs.build-and-push.outputs.image_version }}" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Configure SSH for production
         env:
           SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
           SSH_HOST: ${{ secrets.PROD_HOST }}
         run: |
           mkdir -p ~/.ssh && chmod 700 ~/.ssh
-
           echo "${SSH_KEY}" | tr -d '[:space:]' | base64 -d > ~/.ssh/deploy_key 2>/dev/null \
             || printf '%s\n' "${SSH_KEY}" | tr -d '\r' > ~/.ssh/deploy_key
-
           chmod 600 ~/.ssh/deploy_key
           echo "--- Key fingerprint ---"
           ssh-keygen -l -f ~/.ssh/deploy_key
           echo "-----------------------"
           ssh-keyscan -H "${SSH_HOST}" >> ~/.ssh/known_hosts 2>/dev/null
           echo "SSH configured for ${SSH_HOST}"
+
+      - name: Copy static files to production server
+        env:
+          SSH_HOST: ${{ secrets.PROD_HOST }}
+          SSH_USER: ${{ secrets.PROD_USER }}
+        run: |
+          ssh -i ~/.ssh/deploy_key "${SSH_USER}@${SSH_HOST}" \
+            "mkdir -p /opt/aqlliagronom/prod/admin /opt/aqlliagronom/prod/mathgame"
+          scp -i ~/.ssh/deploy_key \
+            admin/index.html \
+            "${SSH_USER}@${SSH_HOST}:/opt/aqlliagronom/prod/admin/index.html"
+          scp -i ~/.ssh/deploy_key \
+            mathgame/index.html \
+            "${SSH_USER}@${SSH_HOST}:/opt/aqlliagronom/prod/mathgame/index.html"
 
       - name: Deploy to production via SSH (Blue-Green)
         env:
@@ -613,6 +635,11 @@ jobs:
             echo "    Attempt \${i}/12 — waiting 5s..."
             sleep 5
           done
+
+          # Reload nginx so math.conf and updated mathgame files are picked up.
+          # NOTE: On first-time math.fastergo.uz setup, recreate nginx manually on
+          # the prod server with: -v /opt/aqlliagronom/prod/mathgame:/var/www/mathgame:ro
+          docker exec aqlliagronom-nginx nginx -s reload 2>/dev/null || true
 
           docker image prune -f || true
           ENDSSH

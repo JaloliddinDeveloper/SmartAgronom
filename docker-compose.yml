@@ -129,7 +129,9 @@ services:
     volumes:
       - ./nginx/conf.d/local.conf:/etc/nginx/conf.d/default.conf:ro
       - ./nginx/conf.d/admin.conf:/etc/nginx/conf.d/admin.conf:ro
+      - ./nginx/conf.d/math.conf:/etc/nginx/conf.d/math.conf:ro
       - ./admin:/var/www/admin:ro
+      - ./mathgame:/var/www/mathgame:ro
       - certbot_certs:/etc/letsencrypt
       - certbot_www:/var/www/certbot
     depends_on:

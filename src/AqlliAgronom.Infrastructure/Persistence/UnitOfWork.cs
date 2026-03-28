@@ -14,6 +14,7 @@ public class UnitOfWork(ApplicationDbContext dbContext) : IUnitOfWork
     public IKnowledgeEntryRepository KnowledgeEntries { get; } = new KnowledgeEntryRepository(dbContext);
     public IProductRepository Products { get; } = new ProductRepository(dbContext);
     public IOrderRepository Orders { get; } = new OrderRepository(dbContext);
+    public IMathScoreRepository MathScores { get; } = new MathScoreRepository(dbContext);
 
     public void Add<T>(T entity) where T : class
         => dbContext.Set<T>().Add(entity);

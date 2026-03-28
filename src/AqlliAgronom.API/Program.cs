@@ -101,6 +101,13 @@ try
             limiter.SegmentsPerWindow = 4;
         });
 
+        opts.AddSlidingWindowLimiter("math_game", limiter =>
+        {
+            limiter.PermitLimit = 60;
+            limiter.Window = TimeSpan.FromMinutes(1);
+            limiter.SegmentsPerWindow = 4;
+        });
+
         opts.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
     });
 
