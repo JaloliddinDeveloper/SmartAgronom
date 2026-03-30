@@ -167,6 +167,57 @@ h3{font-size:1.3rem;font-weight:700}
 .float-pts{position:fixed;font-size:1.5rem;font-weight:900;color:#fbbf24;pointer-events:none;z-index:200;animation:floatUp 1.2s ease-out forwards}
 @keyframes floatUp{0%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-80px) scale(1.3)}}
 @media(max-width:400px){.card{padding:24px 18px}.question-text{font-size:1.9rem}.option-btn{font-size:1rem;padding:12px 8px}.subject-grid{grid-template-columns:1fr 1fr;gap:8px}}
+
+/* ── Study screen ── */
+.study-card{max-height:90vh;overflow:hidden;display:flex;flex-direction:column;padding:24px 22px}
+.study-scroll{overflow-y:auto;flex:1;margin-top:10px;padding-right:4px}
+.study-scroll::-webkit-scrollbar{width:3px}
+.study-scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,.2);border-radius:4px}
+.study-tabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:8px;margin-bottom:6px;flex-shrink:0}
+.study-tabs::-webkit-scrollbar{display:none}
+.study-tab{padding:6px 13px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:50px;color:rgba(255,255,255,.55);font-size:.75rem;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all .2s}
+.study-tab:hover{color:#fff;background:rgba(255,255,255,.12)}
+/* Country cards */
+.country-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.country-card{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:11px;transition:transform .15s,background .15s}
+.country-card:hover{transform:translateY(-2px);background:rgba(255,255,255,.1)}
+.cc-flag{font-size:1.7rem;margin-bottom:4px}
+.cc-name{font-size:.85rem;font-weight:700;color:#fff;margin-bottom:3px;line-height:1.2}
+.cc-detail{font-size:.7rem;color:rgba(255,255,255,.5);margin-top:1px}
+/* Word pairs */
+.word-dir-row{display:flex;gap:8px;margin-bottom:12px;flex-shrink:0}
+.word-grid{display:flex;flex-direction:column;gap:5px}
+.word-pair-row{display:flex;align-items:center;background:rgba(255,255,255,.05);border-radius:10px;padding:9px 13px;border:1px solid rgba(255,255,255,.07);transition:background .15s}
+.word-pair-row:hover{background:rgba(59,130,246,.12)}
+.wp-src{flex:1;font-weight:600;font-size:.9rem;color:#fff}
+.wp-arr{color:rgba(255,255,255,.2);margin:0 10px;font-size:1rem}
+.wp-trg{flex:1;font-weight:600;font-size:.9rem;color:#60a5fa;text-align:right}
+/* History study */
+.hist-study-card{background:rgba(255,255,255,.05);border:1px solid rgba(245,158,11,.2);border-radius:12px;padding:12px;margin-bottom:7px;cursor:pointer;transition:background .2s;user-select:none}
+.hist-study-card:hover{background:rgba(245,158,11,.07)}
+.hc-q{font-size:.85rem;color:rgba(255,255,255,.85);line-height:1.45;font-weight:500}
+.hc-a{font-size:.85rem;color:#fbbf24;font-weight:700;margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08);display:none}
+.hc-hint{font-size:.68rem;color:rgba(255,255,255,.25);margin-top:5px}
+/* Math study */
+.mf-section{margin-bottom:18px}
+.mf-title{font-size:.78rem;font-weight:700;color:rgba(255,255,255,.5);margin-bottom:9px;text-transform:uppercase;letter-spacing:.5px}
+.formula-card{background:rgba(108,99,255,.1);border:1px solid rgba(108,99,255,.22);border-radius:10px;padding:11px 13px;margin-bottom:6px}
+.formula-name{font-size:.75rem;color:rgba(255,255,255,.45);margin-bottom:3px}
+.formula-val{font-size:1rem;font-weight:700;color:#a78bfa}
+.mult-table{display:grid;grid-template-columns:repeat(11,1fr);gap:2px;font-size:.62rem;text-align:center}
+.mt-cell{background:rgba(255,255,255,.06);border-radius:3px;padding:4px 2px;color:rgba(255,255,255,.75)}
+.mt-cell.mh{background:rgba(108,99,255,.25);color:#a78bfa;font-weight:700}
+.mt-cell.md{background:rgba(251,191,36,.12);color:#fbbf24;font-weight:700}
+/* Hub card actions */
+.subject-card{cursor:default}
+.sc-actions{display:flex;gap:6px;margin-top:10px}
+.sc-action-btn{flex:1;padding:7px 4px;border:none;border-radius:8px;font-size:.72rem;font-weight:700;cursor:pointer;transition:all .15s}
+.sc-action-btn:hover{transform:translateY(-1px);opacity:.9}
+.sc-study-btn{background:rgba(255,255,255,.13);color:#fff}
+.subject-card[data-s="math"] .sc-test-btn{background:linear-gradient(135deg,#6c63ff,#a78bfa);color:#fff}
+.subject-card[data-s="geo"]  .sc-test-btn{background:linear-gradient(135deg,#10b981,#34d399);color:#fff}
+.subject-card[data-s="hist"] .sc-test-btn{background:linear-gradient(135deg,#f59e0b,#fbbf24);color:#111}
+.subject-card[data-s="eng"]  .sc-test-btn{background:linear-gradient(135deg,#3b82f6,#60a5fa);color:#fff}
 </style>
 </head>
 <body>
@@ -205,32 +256,64 @@ h3{font-size:1.3rem;font-weight:700}
     </div>
     <div class="stats-mini" id="hubStats"></div>
     <div class="subject-grid">
-      <button class="subject-card" data-s="math" onclick="openConfig('math')">
+      <div class="subject-card" data-s="math">
+        <span class="sc-badge" style="color:#a78bfa">∞ savol</span>
         <span class="sc-icon">🔢</span>
         <span class="sc-title">Matematika</span>
-        <span class="sc-sub">4-11 sinf · Umumiy</span>
-        <span class="sc-badge" style="color:#a78bfa">∞ savol</span>
-      </button>
-      <button class="subject-card" data-s="geo" onclick="openConfig('geo')">
+        <span class="sc-sub">4-11 sinf · Formulalar</span>
+        <div class="sc-actions">
+          <button class="sc-action-btn sc-study-btn" onclick="openStudy('math')">📖 O'rganish</button>
+          <button class="sc-action-btn sc-test-btn" onclick="openConfig('math')">🎯 Test</button>
+        </div>
+      </div>
+      <div class="subject-card" data-s="geo">
+        <span class="sc-badge" style="color:#34d399">Dunyo</span>
         <span class="sc-icon">🌍</span>
         <span class="sc-title">Geografiya</span>
-        <span class="sc-sub">148 davlat · 600+ savol</span>
-        <span class="sc-badge" style="color:#34d399">Dunyo</span>
-      </button>
-      <button class="subject-card" data-s="hist" onclick="openConfig('hist')">
+        <span class="sc-sub">148 davlat · Ma'lumotlar</span>
+        <div class="sc-actions">
+          <button class="sc-action-btn sc-study-btn" onclick="openStudy('geo')">📖 O'rganish</button>
+          <button class="sc-action-btn sc-test-btn" onclick="openConfig('geo')">🎯 Test</button>
+        </div>
+      </div>
+      <div class="subject-card" data-s="hist">
+        <span class="sc-badge" style="color:#fbbf24">213 savol</span>
         <span class="sc-icon">📜</span>
         <span class="sc-title">Tarix</span>
         <span class="sc-sub">O'zbekiston tarixi</span>
-        <span class="sc-badge" style="color:#fbbf24">213 savol</span>
-      </button>
-      <button class="subject-card" data-s="eng" onclick="openConfig('eng')">
+        <div class="sc-actions">
+          <button class="sc-action-btn sc-study-btn" onclick="openStudy('hist')">📖 O'rganish</button>
+          <button class="sc-action-btn sc-test-btn" onclick="openConfig('hist')">🎯 Test</button>
+        </div>
+      </div>
+      <div class="subject-card" data-s="eng">
+        <span class="sc-badge" style="color:#60a5fa">So'zlar</span>
         <span class="sc-icon">🇬🇧</span>
         <span class="sc-title">Ingliz tili</span>
         <span class="sc-sub">583 so'z · 22 mavzu</span>
-        <span class="sc-badge" style="color:#60a5fa">So'zlar</span>
-      </button>
+        <div class="sc-actions">
+          <button class="sc-action-btn sc-study-btn" onclick="openStudy('eng')">📖 O'rganish</button>
+          <button class="sc-action-btn sc-test-btn" onclick="openConfig('eng')">🎯 Test</button>
+        </div>
+      </div>
     </div>
     <button class="btn btn-outline" onclick="showLeaderboard()">🏆 Reyting ko'rish</button>
+  </div>
+</div>
+
+<!-- ══ STUDY ══ -->
+<div class="screen" id="screen-study">
+  <div class="card study-card">
+    <div class="config-header" style="flex-shrink:0;margin-bottom:10px">
+      <button class="back-btn" onclick="showScreen('screen-hub')">←</button>
+      <div style="flex:1">
+        <h3 id="studyTitle"></h3>
+        <p class="subtitle" id="studySub"></p>
+      </div>
+      <button class="btn-sm btn" id="studyTestBtn" style="width:auto;padding:9px 14px;font-size:.82rem;margin-left:8px">🎯 Test</button>
+    </div>
+    <div id="studyFilters" style="flex-shrink:0"></div>
+    <div id="studyContent" class="study-scroll"></div>
   </div>
 </div>
 
@@ -339,6 +422,152 @@ function sfxStreak(){[523,659,784,1047].forEach((f,i)=>setTimeout(()=>tone(f,'si
 //  FLOATING POINTS
 // ════════════════════════════════════════════════════════
 function floatPts(pts,x,y){const e=document.createElement('div');e.className='float-pts';e.textContent='+'+pts;e.style.cssText=`left:${x}px;top:${y}px`;document.body.appendChild(e);setTimeout(()=>e.remove(),1200);}
+
+// ════════════════════════════════════════════════════════
+//  STUDY MODE
+// ════════════════════════════════════════════════════════
+const SS={cont:'Barchasi',period:'all',cat:'all',dir:'uz2en',math:'table'};
+const GEO_CONTS=['Barchasi','Osiyo','Yevropa','Afrika','Shimoliy Amerika','Janubiy Amerika','Okeaniya'];
+const HIST_PERIODS=[{k:'all',l:'📚 Barchasi'},{k:'qadim',l:'⚱️ Qadim'},{k:'orta',l:'🏰 O\'rta asrlar'},{k:'yangi',l:'📖 Yangi davr'},{k:'sovet',l:'🔴 Sovet'},{k:'mustaqil',l:'🇺🇿 Mustaqillik'}];
+
+function openStudy(subj){
+  state.subject=subj;
+  const m=SUBJ_META[subj];
+  document.getElementById('studyTitle').textContent=m.title+' · O\'rganish';
+  document.getElementById('studySub').textContent='Materialni o\'rganing, keyin testga o\'ting';
+  const tb=document.getElementById('studyTestBtn');
+  tb.className='btn btn-sm '+m.cls;
+  tb.onclick=()=>openConfig(subj);
+  renderStudy();
+  showScreen('screen-study');
+}
+function renderStudy(){
+  const s=state.subject;
+  if(s==='geo') renderGeoStudy();
+  else if(s==='hist') renderHistStudy();
+  else if(s==='eng') renderEngStudy();
+  else renderMathStudy();
+}
+
+function studyTabs(items,activeKey,cls,onClick){
+  return `<div class="study-tabs">${items.map(it=>{
+    const k=it.k||it;const l=it.l||it;
+    const on=k===activeKey;
+    return `<button class="study-tab ${cls}${on?' active':''}" data-k="${k}"
+      style="${on?`background:rgba(var(--${cls}-rgb),.3);border-color:var(--${cls});color:#fff`:''}">${l}</button>`;
+  }).join('')}</div>`;
+}
+
+function renderGeoStudy(){
+  const all=window.GEO_DATA?.countries||[];
+  const fEl=document.getElementById('studyFilters');
+  fEl.innerHTML=`<div class="study-tabs">${GEO_CONTS.map(c=>`
+    <button class="study-tab" data-c="${c}" style="${SS.cont===c?'background:rgba(16,185,129,.3);border-color:#10b981;color:#fff':''}">${c}</button>
+  `).join('')}</div>`;
+  fEl.querySelectorAll('[data-c]').forEach(b=>b.addEventListener('click',()=>{SS.cont=b.dataset.c;renderGeoStudy();}));
+  const list=SS.cont==='Barchasi'?all:all.filter(c=>c[2]===SS.cont||c[2].startsWith(SS.cont.split(' ')[0]));
+  document.getElementById('studyContent').innerHTML=`
+    <p style="font-size:.75rem;color:rgba(255,255,255,.35);margin-bottom:10px">${list.length} ta davlat</p>
+    <div class="country-grid">${list.map(c=>`
+      <div class="country-card">
+        <div class="cc-flag">${c[4]}</div>
+        <div class="cc-name">${c[0]}</div>
+        <div class="cc-detail">🏛️ ${c[1]}</div>
+        <div class="cc-detail">📅 ${c[3]} yil</div>
+        <div class="cc-detail">🗺️ ${c[2]}</div>
+      </div>`).join('')}
+    </div>`;
+}
+
+function renderHistStudy(){
+  const qs=window.HISTORY_DATA?.questions||[];
+  const fEl=document.getElementById('studyFilters');
+  fEl.innerHTML=`<div class="study-tabs">${HIST_PERIODS.map(p=>`
+    <button class="study-tab" data-p="${p.k}" style="${SS.period===p.k?'background:rgba(245,158,11,.3);border-color:#f59e0b;color:#fff':''}">${p.l}</button>
+  `).join('')}</div>`;
+  fEl.querySelectorAll('[data-p]').forEach(b=>b.addEventListener('click',()=>{SS.period=b.dataset.p;renderHistStudy();}));
+  const MAP={qadim:[0,25],orta:[25,61],yangi:[61,81],sovet:[81,101],mustaqil:[101,qs.length]};
+  const [a,b]=SS.period==='all'?[0,qs.length]:MAP[SS.period]||[0,qs.length];
+  const slice=qs.slice(a,b);
+  document.getElementById('studyContent').innerHTML=`
+    <p style="font-size:.75rem;color:rgba(255,255,255,.35);margin-bottom:10px">${slice.length} ta savol — javobni ko'rish uchun bosing 👆</p>
+    ${slice.map((q,i)=>`
+      <div class="hist-study-card" onclick="const a=this.querySelector('.hc-a');a.style.display=a.style.display==='block'?'none':'block';this.querySelector('.hc-hint').style.display=a.style.display==='block'?'none':'block'">
+        <div class="hc-q">${a+i+1}. ${q.q}</div>
+        <div class="hc-a">✅ ${q.o[q.c]}</div>
+        <div class="hc-hint">👆 Javobni ko'rish uchun bosing</div>
+      </div>`).join('')}`;
+}
+
+function renderEngStudy(){
+  const cats=window.ENGLISH_DATA?.categories||{};
+  const allCats=Object.keys(cats);
+  const fEl=document.getElementById('studyFilters');
+  fEl.innerHTML=`
+    <div class="study-tabs">
+      <button class="study-tab" data-ec="all" style="${SS.cat==='all'?'background:rgba(59,130,246,.3);border-color:#3b82f6;color:#fff':''}">🌟 Barchasi</button>
+      ${allCats.map(c=>`<button class="study-tab" data-ec="${c}" style="${SS.cat===c?'background:rgba(59,130,246,.3);border-color:#3b82f6;color:#fff':''}">${catLabel(c)}</button>`).join('')}
+    </div>
+    <div class="word-dir-row">
+      <button class="pick-btn${SS.dir==='uz2en'?' active':''}" style="flex:1" onclick="SS.dir='uz2en';renderEngStudy()">🇺🇿 → 🇬🇧 O'zbek</button>
+      <button class="pick-btn${SS.dir==='en2uz'?' active':''}" style="flex:1" onclick="SS.dir='en2uz';renderEngStudy()">🇬🇧 → 🇺🇿 English</button>
+    </div>`;
+  fEl.querySelectorAll('[data-ec]').forEach(b=>b.addEventListener('click',()=>{SS.cat=b.dataset.ec;renderEngStudy();}));
+  let pairs=[];
+  if(SS.cat==='all'){Object.values(cats).forEach(c=>c.forEach(p=>pairs.push(p)));}
+  else{pairs=cats[SS.cat]||[];}
+  const isUz=SS.dir==='uz2en';
+  document.getElementById('studyContent').innerHTML=`
+    <p style="font-size:.75rem;color:rgba(255,255,255,.35);margin-bottom:10px">${pairs.length} ta so'z</p>
+    <div class="word-grid">${pairs.map(p=>`
+      <div class="word-pair-row">
+        <span class="wp-src">${isUz?p[0]:p[1]}</span>
+        <span class="wp-arr">→</span>
+        <span class="wp-trg">${isUz?p[1]:p[0]}</span>
+      </div>`).join('')}
+    </div>`;
+}
+
+function renderMathStudy(){
+  const tabs=[{k:'table',l:'📊 Ko\'paytirish'},{k:'shapes',l:'📐 Shakllar'},{k:'algebra',l:'🔣 Algebra'},{k:'fractions',l:'½ Kasrlar'},{k:'percent',l:'% Foizlar'},{k:'geometry',l:'📏 Geometriya'}];
+  const fEl=document.getElementById('studyFilters');
+  fEl.innerHTML=`<div class="study-tabs">${tabs.map(t=>`
+    <button class="study-tab" data-mt="${t.k}" style="${SS.math===t.k?'background:rgba(108,99,255,.3);border-color:#6c63ff;color:#fff':''}">${t.l}</button>
+  `).join('')}</div>`;
+  fEl.querySelectorAll('[data-mt]').forEach(b=>b.addEventListener('click',()=>{SS.math=b.dataset.mt;renderMathStudy();}));
+  const cEl=document.getElementById('studyContent');
+  const fc=(name,val)=>`<div class="formula-card"><div class="formula-name">${name}</div><div class="formula-val">${val}</div></div>`;
+  const sec=(title,...items)=>`<div class="mf-section"><div class="mf-title">${title}</div>${items.join('')}</div>`;
+  if(SS.math==='table'){
+    let h='<div class="mf-section"><div class="mf-title">Ko\'paytirish jadvali 1–10</div><div class="mult-table">';
+    h+='<div class="mt-cell mh">×</div>';
+    for(let i=1;i<=10;i++)h+=`<div class="mt-cell mh">${i}</div>`;
+    for(let r=1;r<=10;r++){
+      h+=`<div class="mt-cell mh">${r}</div>`;
+      for(let c=1;c<=10;c++)h+=`<div class="mt-cell${r===c?' md':''}">${r*c}</div>`;
+    }
+    cEl.innerHTML=h+'</div></div>';
+  } else if(SS.math==='shapes'){
+    cEl.innerHTML=
+      sec('📐 Yuzalar',fc('Kvadrat','S = a²'),fc('To\'rtburchak','S = a × b'),fc('Uchburchak','S = (a × h) / 2'),fc('Aylana','S = π × r²'),fc('Trapetsiya','S = (a + b) × h / 2'),fc('Romb','S = (d₁ × d₂) / 2'))+
+      sec('📏 Perimetr',fc('Kvadrat','P = 4a'),fc('To\'rtburchak','P = 2(a + b)'),fc('Uchburchak','P = a + b + c'),fc('Aylana (uzunlik)','C = 2πr'));
+  } else if(SS.math==='algebra'){
+    cEl.innerHTML=
+      sec('🔣 Qisqartirilgan ko\'paytirish',fc('(a+b)²','a² + 2ab + b²'),fc('(a−b)²','a² − 2ab + b²'),fc('a²−b²','(a+b)(a−b)'),fc('a³+b³','(a+b)(a²−ab+b²)'),fc('a³−b³','(a−b)(a²+ab+b²)'))+
+      sec('Kvadrat tenglama',fc('Diskriminant','D = b² − 4ac'),fc('Ildizlar','x = (−b ± √D) / 2a'),fc('Viet teoremasi','x₁+x₂ = −b/a,  x₁·x₂ = c/a'));
+  } else if(SS.math==='fractions'){
+    cEl.innerHTML=
+      sec('½ Kasrlar',fc('Qo\'shish (bir maxraj)','a/c + b/c = (a+b)/c'),fc('Qo\'shish (turli maxraj)','a/b + c/d = (ad+bc)/bd'),fc('Ko\'paytirish','a/b × c/d = ac/bd'),fc('Bo\'lish','a/b ÷ c/d = a/b × d/c'),fc('Aralash son → noto\'g\'ri kasr','2¾ = (2×4+3)/4 = 11/4'));
+  } else if(SS.math==='percent'){
+    cEl.innerHTML=
+      sec('% Foizlar',fc('Foiz topish','% = (son / jami) × 100'),fc('Foizdan son topish','Son = jami × % / 100'),fc('Misol: 150 dan 20%','150 × 20 / 100 = 30'),fc('O\'zgarish foizi','Δ% = (yangi − eski) / eski × 100'),fc('Chegirma','Yangi narx = Narx × (1 − %/100)'));
+  } else if(SS.math==='geometry'){
+    cEl.innerHTML=
+      sec('📐 Uchburchak',fc('Burchaklar yig\'indisi','α + β + γ = 180°'),fc('Pifagor teoremasi','c² = a² + b²  (to\'g\'ri burchakli)'),fc('Sinuslar teoremasi','a/sin A = b/sin B = c/sin C'),fc('Kosinuslar teoremasi','c² = a²+b²−2ab·cos C'))+
+      sec('🔵 Aylana va shar',fc('Aylana uzunligi','C = 2πr'),fc('Doira yuzi','S = πr²'),fc('Shar yuzi','S = 4πr²'),fc('Shar hajmi','V = 4/3·πr³'))+
+      sec('🧊 Jismlar hajmi',fc('Silindr','V = πr²h'),fc('Konus','V = ⅓πr²h'),fc('Parallelepiped','V = a·b·c'),fc('Piramida','V = ⅓·S·h'));
+  }
+}
 
 // ════════════════════════════════════════════════════════
 //  API
