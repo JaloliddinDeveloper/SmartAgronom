@@ -535,8 +535,11 @@ window.HISTORY_DATA = {
     {q:"O'zbekistonning davlat bayrog'idagi ranglar qanday?",
      o:["Qizil, sariq, yashil","Ko'k, oq va yashil (chiziqli), qizil chiziqlar bilan","Ko'k va oq","Yashil va sariq"],c:1},
 
-    {q:"O'zbekiston bayrog'idagi yarim oy va 12 yulduz nimani anglatadi?",
-     o:["12 viloyatni","Islomiy an'ana va 12 oyning ramzi","12 oyni","Qadimgi sulolalarni"],c:2},
+    {q:"O'zbekiston bayrog'idagi 12 yulduz nimani bildiradi?",
+     o:["O'zbekistonning 12 viloyatini","12 oyni","12 sulolani","Islom dinini"],c:0},
+
+    {q:"O'zbekiston bayrog'idagi yarim oy nimani ifodalaydi?",
+     o:["Islom dinini","Qoraqalpog'iston Respublikasini","Tinchlikni","Yangi boshlanishni"],c:1},
 
     {q:"Samarqand qaysi UNESCO ro'yxatida?",
      o:["Tabiat merosi","Dunyo madaniy merosi (World Heritage)","Xavf ostidagi meros","Nomateriall meros"],c:1},
