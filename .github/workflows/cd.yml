@@ -161,6 +161,9 @@ jobs:
           scp -i ~/.ssh/deploy_key \
             mathgame/index.html \
             "${SSH_USER}@${SSH_HOST}:/opt/aqlliagronom/staging/mathgame/index.html"
+          scp -i ~/.ssh/deploy_key \
+            mathgame/data.js \
+            "${SSH_USER}@${SSH_HOST}:/opt/aqlliagronom/staging/mathgame/data.js"
 
       - name: Deploy to staging via SSH
         env:
@@ -496,6 +499,9 @@ jobs:
           scp -i ~/.ssh/deploy_key \
             mathgame/index.html \
             "${SSH_USER}@${SSH_HOST}:/opt/aqlliagronom/prod/mathgame/index.html"
+          scp -i ~/.ssh/deploy_key \
+            mathgame/data.js \
+            "${SSH_USER}@${SSH_HOST}:/opt/aqlliagronom/prod/mathgame/data.js"
 
       - name: Deploy to production via SSH (Blue-Green)
         env:
