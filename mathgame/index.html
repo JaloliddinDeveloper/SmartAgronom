@@ -606,6 +606,7 @@ function showScreen(id){
 async function goHub(){
   const p=getPlayer();
   document.getElementById('hubName').textContent=p?.name||'';
+  if(p?.name) apiRegisterPlayer(p.name);
   showScreen('screen-hub');
   showPlayerCount('hubCount');
 }
