@@ -369,7 +369,7 @@ function forgetPlayer(){localStorage.removeItem(PK);showScreen('screen-welcome')
 // ════════════════════════════════════════════════════════
 function showScreen(id){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
-  const s=document.getElementById(id);s.classList.remove('active');void s.offsetWidth;s.classList.add('active');
+  const s=document.getElementById(id);void s.offsetWidth;s.classList.add('active');
 }
 async function goHub(){
   const p=getPlayer();
@@ -567,10 +567,11 @@ function buildGeoPool(){
   });
   return shuffle(pool);
 }
-function genGeo(){
+function genGeo(depth=0){
+  if(depth>10) return genMath(); // fallback to math if geo data exhausted
   if(!state.geoPool.length) state.geoPool=buildGeoPool();
   const item=state.geoPool.pop();
-  if(!item) return genGeo();
+  if(!item) return genGeo(depth+1);
   const [name,capital,continent,indep,flag]=item.country;
   const all=window.GEO_DATA.countries;
   let q,ans,opts;
@@ -602,7 +603,7 @@ function genGeo(){
 // ════════════════════════════════════════════════════════
 //  HISTORY QUESTION
 // ════════════════════════════════════════════════════════
-const HIST_PERIOD_MAP={qadim:[0,40],orta:[40,90],yangi:[90,120],sovet:[120,160],mustaqil:[160,213]};
+const HIST_PERIOD_MAP={qadim:[0,25],orta:[25,61],yangi:[61,81],sovet:[81,101],mustaqil:[101,213]};
 function buildHistPool(){
   const qs=window.HISTORY_DATA?.questions||[];
   let pool;
@@ -610,11 +611,12 @@ function buildHistPool(){
   else{const[a,b]=HIST_PERIOD_MAP[state.histPeriod]||[0,qs.length];pool=Array.from({length:Math.min(b,qs.length)-a},(_,i)=>i+a);}
   return shuffle(pool);
 }
-function genHist(){
+function genHist(depth=0){
+  if(depth>10) return genMath();
   if(!state.histPool.length) state.histPool=buildHistPool();
   const idx=state.histPool.pop();
   const qs=window.HISTORY_DATA?.questions||[];
-  if(idx===undefined||!qs[idx]) return genHist();
+  if(idx===undefined||!qs[idx]) return genHist(depth+1);
   const item=qs[idx];
   const opts=[...item.o];
   return{question:item.q,answer:item.o[item.c],options:shuffle(opts),badge:'Tarix',badgeCls:'op-hist'};
@@ -630,10 +632,11 @@ function buildEngPool(){
   chosen.forEach(c=>{if(cats[c])cats[c].forEach(p=>pairs.push({pair:p,cat:c}));});
   return shuffle(pairs);
 }
-function genEng(){
+function genEng(depth=0){
+  if(depth>10) return genMath();
   if(!state.engPool.length) state.engPool=buildEngPool();
   const item=state.engPool.pop();
-  if(!item) return genEng();
+  if(!item) return genEng(depth+1);
   const [uz,en]=item.pair;
   const cats=window.ENGLISH_DATA?.categories||{};
   const mode=state.engMode==='mix'?(Math.random()<.5?'uz2en':'en2uz'):state.engMode;
@@ -684,6 +687,9 @@ function startGame(replay=false){
     const mBtn=document.querySelector('.pick-btn[data-mode].active');
     if(mBtn)state.engMode=mBtn.dataset.mode;
     // Reset pools
+    state.histPool=[];state.geoPool=[];state.engPool=[];
+  } else {
+    // Replay: also reset pools so user gets fresh questions
     state.histPool=[];state.geoPool=[];state.engPool=[];
   }
   state.score=0;state.correct=0;state.streak=0;state.bestStreak=0;state.qIndex=0;
@@ -774,7 +780,7 @@ function selectAnswer(value,btn,event){
     if(state.streak>state.bestStreak)state.bestStreak=state.streak;
     const pts=100+state.timeLeft*10+(state.streak>1?(state.streak-1)*20:0);
     state.score+=pts;
-    sfxOk();if(state.streak>=3)sfxStreak();
+    sfxOk();if(state.streak>=2)sfxStreak();
     const r=btn.getBoundingClientRect();
     floatPts(pts,r.left+r.width/2,r.top);
     launchConfetti(r.left+r.width/2,r.top+r.height/2);
