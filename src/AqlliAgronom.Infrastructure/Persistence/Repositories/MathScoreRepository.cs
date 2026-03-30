@@ -10,15 +10,39 @@ public class MathScoreRepository(ApplicationDbContext dbContext)
     public async Task<IReadOnlyList<MathScore>> GetTopScoresAsync(
         string? difficulty, int limit, CancellationToken ct = default)
     {
-        var query = DbSet.AsNoTracking();
+        // Per-player best score only: DISTINCT ON groups by player_name and picks
+        // the row with the highest score, so a lower attempt never displaces a
+        // player's personal best on the leaderboard.
+        var filterByDifficulty = !string.IsNullOrWhiteSpace(difficulty) && difficulty != "all";
 
-        if (!string.IsNullOrWhiteSpace(difficulty) && difficulty != "all")
-            query = query.Where(s => s.Difficulty == difficulty);
+        if (filterByDifficulty)
+        {
+            return await DbSet.FromSqlRaw(
+                """
+                SELECT * FROM (
+                    SELECT DISTINCT ON (player_name) *
+                    FROM math_scores
+                    WHERE difficulty = {0}
+                    ORDER BY player_name, score DESC, correct_answers DESC
+                ) best
+                ORDER BY score DESC, correct_answers DESC
+                LIMIT {1}
+                """, difficulty!, limit)
+                .AsNoTracking()
+                .ToListAsync(ct);
+        }
 
-        return await query
-            .OrderByDescending(s => s.Score)
-            .ThenByDescending(s => s.CorrectAnswers)
-            .Take(limit)
+        return await DbSet.FromSqlRaw(
+            """
+            SELECT * FROM (
+                SELECT DISTINCT ON (player_name) *
+                FROM math_scores
+                ORDER BY player_name, score DESC, correct_answers DESC
+            ) best
+            ORDER BY score DESC, correct_answers DESC
+            LIMIT {0}
+            """, limit)
+            .AsNoTracking()
             .ToListAsync(ct);
     }
 }

@@ -15,7 +15,7 @@ public class MathScoreConfiguration : IEntityTypeConfiguration<MathScore>
             .IsRequired();
 
         builder.Property(s => s.Difficulty)
-            .HasMaxLength(10)
+            .HasMaxLength(50)
             .IsRequired();
 
         builder.HasIndex(s => new { s.Difficulty, s.Score })
