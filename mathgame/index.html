@@ -1027,7 +1027,7 @@ function selectAnswer(value,btn,event){
 function endGame(){
   clearTimer();sfxEnd();
   const p=getPlayer();
-  const subjKey=state.subject+'-'+(state.grade||state.geoTopic||state.histPeriod||state.engMode||'all');
+  const subjKey=state.subject;
   const entry={name:p?.name||'?',score:state.score,correct:state.correct,streak:state.bestStreak,subject:state.subject,key:subjKey,date:new Date().toLocaleDateString('uz-UZ')};
   addLocalScore(entry);
   apiSubmit({playerName:entry.name,score:state.score,correctAnswers:state.correct,bestStreak:state.bestStreak,levelReached:Math.ceil(state.qIndex/5),difficulty:subjKey});
