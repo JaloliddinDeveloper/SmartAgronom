@@ -28,7 +28,7 @@ h3{font-size:1.3rem;font-weight:700}
 .player-chip{background:rgba(108,99,255,.2);border:1px solid rgba(108,99,255,.4);border-radius:50px;padding:8px 18px;font-size:.95rem;font-weight:700}
 .subject-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:4px 0 20px}
 .subject-card{background:rgba(255,255,255,.07);border:2px solid rgba(255,255,255,.1);border-radius:18px;padding:20px 16px;cursor:pointer;transition:all .2s;text-align:left;color:#fff;position:relative;overflow:hidden}
-.subject-card::before{content:'';position:absolute;inset:0;opacity:0;transition:opacity .2s}
+.subject-card::before{content:'';position:absolute;inset:0;opacity:0;transition:opacity .2s;pointer-events:none}
 .subject-card:hover{transform:translateY(-3px);box-shadow:0 12px 30px rgba(0,0,0,.3)}
 .subject-card:hover::before{opacity:1}
 .subject-card[data-s="math"]{border-color:rgba(108,99,255,.35)}
@@ -131,22 +131,6 @@ h3{font-size:1.3rem;font-weight:700}
 .stat-box{flex:1;background:rgba(255,255,255,.07);border-radius:12px;padding:12px 8px;font-size:.82rem;color:rgba(255,255,255,.6)}
 .stat-box .stat-val{display:block;font-size:1.5rem;font-weight:800;color:#fff;margin-bottom:2px}
 
-/* ── Leaderboard ── */
-.lb-filter-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
-.lb-filter-btn{padding:6px 12px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:8px;color:rgba(255,255,255,.6);font-size:.78rem;font-weight:600;cursor:pointer;transition:all .15s}
-.lb-filter-btn.active{background:rgba(108,99,255,.3);border-color:#6c63ff;color:#fff}
-.lb-row{display:flex;align-items:center;gap:12px;padding:12px 14px;background:rgba(255,255,255,.05);border-radius:12px;margin-bottom:7px;border:1px solid rgba(255,255,255,.07);transition:transform .15s;animation:lbIn .3s ease both}
-.lb-row:hover{transform:translateX(4px)}
-@keyframes lbIn{from{opacity:0;transform:translateX(-20px)}to{opacity:1;transform:translateX(0)}}
-.lb-row.me{background:rgba(108,99,255,.2);border-color:rgba(108,99,255,.5)}
-.lb-rank{font-size:1.2rem;font-weight:900;min-width:32px;text-align:center}
-.lb-rank.gold{color:#fbbf24;text-shadow:0 0 12px rgba(251,191,36,.6)}
-.lb-rank.silver{color:#94a3b8}
-.lb-rank.bronze{color:#d97706}
-.lb-name{flex:1;font-weight:600;font-size:.95rem}
-.lb-score-val{font-size:1.1rem;font-weight:800;color:#a78bfa}
-.empty-lb{text-align:center;padding:36px;color:rgba(255,255,255,.35);font-size:.9rem}
-
 /* ── Name screen ── */
 #screen-welcome{text-align:center}
 .logo{font-size:4.5rem;display:block;margin-bottom:6px;animation:pulse 2s ease-in-out infinite}
@@ -154,9 +138,7 @@ h3{font-size:1.3rem;font-weight:700}
 .input-wrap input{width:100%;padding:15px 18px;background:rgba(255,255,255,.1);border:2px solid rgba(255,255,255,.2);border-radius:14px;color:#fff;font-size:1.05rem;outline:none;transition:border-color .2s,box-shadow .2s}
 .input-wrap input:focus{border-color:var(--primary);box-shadow:0 0 0 4px rgba(108,99,255,.25)}
 .input-wrap input::placeholder{color:rgba(255,255,255,.4)}
-.stats-mini{display:flex;gap:10px;margin:16px 0}
-.sm-box{flex:1;background:rgba(255,255,255,.06);border-radius:10px;padding:10px;text-align:center;font-size:.78rem;color:rgba(255,255,255,.5)}
-.sm-box strong{display:block;font-size:1.2rem;color:#a78bfa}
+.player-count-box{display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:50px;padding:8px 18px;font-size:.85rem;color:rgba(255,255,255,.55);margin:12px 0}
 
 /* ── Misc ── */
 .divider{border:none;border-top:1px solid rgba(255,255,255,.08);margin:18px 0}
@@ -233,7 +215,7 @@ h3{font-size:1.3rem;font-weight:700}
       <h1 class="gradient-text">EduRace</h1>
       <p class="subtitle">Matematika · Geografiya · Tarix · Ingliz tili</p>
     </div>
-    <div class="stats-mini" id="welcomeStats"></div>
+    <div id="welcomeCount"></div>
     <div style="margin-top:8px">
       <p class="picker-label" style="margin-bottom:6px">Taxallusingizni kiriting:</p>
       <p style="font-size:.78rem;color:rgba(255,255,255,.4);margin-bottom:12px;line-height:1.5">Bu ism sizning liderlar jadvalidagi identifikatoringiz. Bir xil ism boshqa qurilmadan ham ishlatilishi mumkin.</p>
@@ -255,7 +237,7 @@ h3{font-size:1.3rem;font-weight:700}
       </div>
       <button onclick="forgetPlayer()" style="background:none;border:1px solid rgba(255,255,255,.2);border-radius:10px;padding:7px 12px;color:rgba(255,255,255,.5);font-size:.8rem;cursor:pointer">✏️ Ism</button>
     </div>
-    <div class="stats-mini" id="hubStats"></div>
+    <div id="hubCount"></div>
     <div class="subject-grid">
       <div class="subject-card" data-s="math">
         <span class="sc-badge" style="color:#a78bfa">∞ savol</span>
@@ -298,7 +280,6 @@ h3{font-size:1.3rem;font-weight:700}
         </div>
       </div>
     </div>
-    <button class="btn btn-outline" onclick="showLeaderboard()">🏆 Reyting ko'rish</button>
   </div>
 </div>
 
@@ -373,23 +354,10 @@ h3{font-size:1.3rem;font-weight:700}
       <div class="stat-box"><span class="stat-val" id="statQ">1</span>daraja</div>
     </div>
     <button class="btn btn-success" onclick="startGame(true)">🔄 Qayta o'ynash</button>
-    <button class="btn btn-outline" onclick="showLeaderboard()">🏆 Reyting</button>
     <button class="btn btn-outline" onclick="showScreen('screen-hub')">🏠 Bosh sahifa</button>
   </div>
 </div>
 
-<!-- ══ LEADERBOARD ══ -->
-<div class="screen" id="screen-leaderboard">
-  <div class="card">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-      <h2>🏆 Reyting</h2>
-      <button onclick="showScreen('screen-hub')" style="background:none;border:none;color:rgba(255,255,255,.5);font-size:1.3rem;cursor:pointer">✕</button>
-    </div>
-    <div class="lb-filter-row" id="lbFilters"></div>
-    <div id="leaderboardList"></div>
-    <button class="btn btn-outline" onclick="showScreen('screen-hub')">← Orqaga</button>
-  </div>
-</div>
 
 </div><!-- /app -->
 <script>
@@ -575,7 +543,7 @@ function renderMathStudy(){
 // ════════════════════════════════════════════════════════
 const API='https://agronom.fastergo.uz/api/v1/math';
 async function apiSubmit(d){try{await fetch(`${API}/scores`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});}catch(e){}}
-async function apiFetch(subject){try{const r=await fetch(`${API}/scores?difficulty=${encodeURIComponent(subject)}&limit=20`);if(!r.ok)return null;const j=await r.json();return j.data;}catch(e){return null;}}
+async function apiPlayerCount(){try{const r=await fetch(`${API}/player-count`);if(!r.ok)return null;const j=await r.json();return j.data;}catch(e){return null;}}
 
 // ════════════════════════════════════════════════════════
 //  PLAYER PERSISTENCE
@@ -605,22 +573,13 @@ async function goHub(){
   const p=getPlayer();
   document.getElementById('hubName').textContent=p?.name||'';
   showScreen('screen-hub');
-  updateStats('hubStats');
+  showPlayerCount('hubCount');
 }
-async function showLeaderboard(){
-  renderLeaderboard();
-  showScreen('screen-leaderboard');
-}
-
-// ════════════════════════════════════════════════════════
-//  STATS
-// ════════════════════════════════════════════════════════
-async function updateStats(elId){
+async function showPlayerCount(elId){
   const el=document.getElementById(elId);if(!el)return;
-  const all=getLocalScores();
-  if(!all.length){el.innerHTML='';return;}
-  const top=all[0];
-  el.innerHTML=`<div class="sm-box"><strong>${top.score}</strong>Rekord</div><div class="sm-box"><strong>${top.name.slice(0,8)}</strong>Lider</div><div class="sm-box"><strong>${all.length}</strong>O'yinlar</div>`;
+  const n=await apiPlayerCount();
+  if(n==null){el.innerHTML='';return;}
+  el.innerHTML=`<div class="player-count-box">👥 <strong style="color:#a78bfa">${n}</strong> ta o'yinchi ro'yxatdan o'tgan</div>`;
 }
 
 // ════════════════════════════════════════════════════════
@@ -1054,43 +1013,6 @@ function endGame(){
 }
 
 // ════════════════════════════════════════════════════════
-//  LEADERBOARD
-// ════════════════════════════════════════════════════════
-const LB_FILTERS=[
-  {label:'Hammasi',key:'all'},
-  {label:'🔢 Math',key:'math'},
-  {label:'🌍 Geo',key:'geo'},
-  {label:'📜 Tarix',key:'hist'},
-  {label:'🇬🇧 Ingliz',key:'eng'},
-];
-let lbFilter='all';
-
-function renderLeaderboard(){
-  const fr=document.getElementById('lbFilters');
-  fr.innerHTML=LB_FILTERS.map(f=>`<button class="lb-filter-btn${lbFilter===f.key?' active':''}" onclick="setLbFilter('${f.key}')">${f.label}</button>`).join('');
-  const scores=getLocalScores().filter(s=>lbFilter==='all'||s.subject===lbFilter).slice(0,20);
-  const list=document.getElementById('leaderboardList');
-  const p=getPlayer();
-  if(!scores.length){list.innerHTML='<div class="empty-lb">🎯 Hali natija yo\'q!</div>';return;}
-  const rankEmoji=i=>i===0?'🥇':i===1?'🥈':i===2?'🥉':null;
-  const rankCls=i=>i===0?'gold':i===1?'silver':i===2?'bronze':'';
-  const subIcon={math:'🔢',geo:'🌍',hist:'📜',eng:'🇬🇧'};
-  list.innerHTML=scores.map((s,i)=>`
-    <div class="lb-row${s.name===p?.name?' me':''}" style="animation-delay:${i*.05}s">
-      <div class="lb-rank ${rankCls(i)}">${rankEmoji(i)||(i+1)}</div>
-      <div>
-        <div class="lb-name">${esc(s.name)}${s.name===p?.name?' <span style="color:#a78bfa;font-size:.72rem">(siz)</span>':''}</div>
-        <div style="font-size:.72rem;color:rgba(255,255,255,.4)">${subIcon[s.subject]||'📚'} ${s.date||''} · ✓${s.correct}</div>
-      </div>
-      <div style="text-align:right">
-        <div class="lb-score-val">${s.score}</div>
-      </div>
-    </div>`).join('');
-}
-function setLbFilter(k){lbFilter=k;renderLeaderboard();}
-function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
-
-// ════════════════════════════════════════════════════════
 //  KEYBOARD SHORTCUTS
 // ════════════════════════════════════════════════════════
 document.getElementById('playerName').addEventListener('keydown',e=>{
@@ -1110,7 +1032,7 @@ document.addEventListener('keydown',e=>{
 (function init(){
   const p=getPlayer();
   if(p?.name){goHub();}
-  else{showScreen('screen-welcome');updateStats('welcomeStats');}
+  else{showScreen('screen-welcome');showPlayerCount('welcomeCount');}
 })();
 </script>
 </body>

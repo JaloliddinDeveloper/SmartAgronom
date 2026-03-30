@@ -2,6 +2,7 @@ using AqlliAgronom.API.Models;
 using AqlliAgronom.Application.Features.MathGame.Commands.SubmitScore;
 using AqlliAgronom.Application.Features.MathGame.DTOs;
 using AqlliAgronom.Application.Features.MathGame.Queries.GetLeaderboard;
+using AqlliAgronom.Application.Features.MathGame.Queries.GetPlayerCount;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 
@@ -26,6 +27,14 @@ public class MathController : BaseApiController
         var result = await Mediator.Send(new GetMathLeaderboardQuery(difficulty, limit), ct);
         return OkResponse(result);
     }
+
+    /// <summary>
+    /// Get the number of unique players who have submitted a score.
+    /// </summary>
+    [HttpGet("player-count")]
+    [ProducesResponseType(typeof(ApiResponse<int>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<ApiResponse<int>>> GetPlayerCount(CancellationToken ct) =>
+        OkResponse(await Mediator.Send(new GetPlayerCountQuery(), ct));
 
     /// <summary>
     /// Submit a new score after a game session.

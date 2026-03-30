@@ -45,4 +45,7 @@ public class MathScoreRepository(ApplicationDbContext dbContext)
             .AsNoTracking()
             .ToListAsync(ct);
     }
+
+    public async Task<int> GetPlayerCountAsync(CancellationToken ct = default) =>
+        await DbSet.Select(s => s.PlayerName).Distinct().CountAsync(ct);
 }
