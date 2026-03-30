@@ -1051,13 +1051,12 @@ function endGame(){
 //  LEADERBOARD
 // ════════════════════════════════════════════════════════
 const LB_FILTERS=[
-  {label:'Hammasi',key:'all'},
-  {label:'🔢 Math',key:'math'},
-  {label:'🌍 Geo',key:'geo'},
+  {label:'🔢 Matematika',key:'math'},
+  {label:'🌍 Geografiya',key:'geo'},
   {label:'📜 Tarix',key:'hist'},
-  {label:'🇬🇧 Ingliz',key:'eng'},
+  {label:'🇬🇧 Ingliz tili',key:'eng'},
 ];
-let lbFilter='all';
+let lbFilter='math';
 
 async function renderLeaderboard(){
   const fr=document.getElementById('lbFilters');
