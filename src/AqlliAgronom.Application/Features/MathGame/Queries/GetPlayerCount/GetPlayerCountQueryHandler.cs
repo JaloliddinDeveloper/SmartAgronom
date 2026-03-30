@@ -7,5 +7,5 @@ public class GetPlayerCountQueryHandler(IUnitOfWork uow)
     : IRequestHandler<GetPlayerCountQuery, int>
 {
     public Task<int> Handle(GetPlayerCountQuery request, CancellationToken ct) =>
-        uow.MathScores.GetPlayerCountAsync(ct);
+        uow.EduPlayers.CountAsync(ct);
 }

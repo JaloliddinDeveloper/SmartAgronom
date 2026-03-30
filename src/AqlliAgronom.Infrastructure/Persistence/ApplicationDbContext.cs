@@ -22,6 +22,7 @@ public class ApplicationDbContext(
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<OrderItem> OrderItems => Set<OrderItem>();
     public DbSet<MathScore> MathScores => Set<MathScore>();
+    public DbSet<EduPlayer> EduPlayers => Set<EduPlayer>();
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {

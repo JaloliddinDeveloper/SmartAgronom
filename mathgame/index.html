@@ -573,6 +573,7 @@ function renderMathStudy(){
 // ════════════════════════════════════════════════════════
 const API='https://agronom.fastergo.uz/api/v1/math';
 async function apiSubmit(d){try{await fetch(`${API}/scores`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});}catch(e){}}
+async function apiRegisterPlayer(name){try{await fetch(`${API}/players`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name})});}catch(e){}}
 async function apiPlayerCount(){try{const r=await fetch(`${API}/player-count`);if(!r.ok)return null;const j=await r.json();return j.data;}catch(e){return null;}}
 async function apiFetch(subject){try{const r=await fetch(`${API}/scores?difficulty=${encodeURIComponent(subject)}&limit=50`);if(!r.ok)return null;const j=await r.json();return j.data;}catch(e){return null;}}
 
@@ -586,10 +587,12 @@ function setPlayer(o){localStorage.setItem(PK,JSON.stringify(o));}
 function getLocalScores(){try{return JSON.parse(localStorage.getItem(LSK))||[];}catch(e){return[];}}
 function addLocalScore(e){const s=getLocalScores();s.push(e);s.sort((a,b)=>b.score-a.score);localStorage.setItem(LSK,JSON.stringify(s.slice(0,200)));}
 
-function saveNewPlayer(){
+async function saveNewPlayer(){
   const n=document.getElementById('playerName').value.trim();
   if(!n){document.getElementById('playerName').style.borderColor='#f64f59';return;}
-  setPlayer({name:n});goHub();
+  setPlayer({name:n});
+  apiRegisterPlayer(n);
+  goHub();
 }
 function forgetPlayer(){localStorage.removeItem(PK);showScreen('screen-welcome');}
 

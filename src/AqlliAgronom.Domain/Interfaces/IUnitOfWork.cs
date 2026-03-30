@@ -10,6 +10,7 @@ public interface IUnitOfWork : IDisposable
     IProductRepository Products { get; }
     IOrderRepository Orders { get; }
     IMathScoreRepository MathScores { get; }
+    IEduPlayerRepository EduPlayers { get; }
 
     void Add<T>(T entity) where T : class;
     Task<int> SaveChangesAsync(CancellationToken ct = default);

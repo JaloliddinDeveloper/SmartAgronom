@@ -2,6 +2,7 @@ using AqlliAgronom.API.Models;
 using AqlliAgronom.Application.Features.MathGame.Commands.SubmitScore;
 using AqlliAgronom.Application.Features.MathGame.DTOs;
 using AqlliAgronom.Application.Features.MathGame.Queries.GetLeaderboard;
+using AqlliAgronom.Application.Features.MathGame.Commands.RegisterPlayer;
 using AqlliAgronom.Application.Features.MathGame.Queries.GetPlayerCount;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -29,7 +30,18 @@ public class MathController : BaseApiController
     }
 
     /// <summary>
-    /// Get the number of unique players who have submitted a score.
+    /// Register a player by name (upsert — ignored if name already exists).
+    /// </summary>
+    [HttpPost("players")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> RegisterPlayer([FromBody] RegisterPlayerCommand command, CancellationToken ct)
+    {
+        await Mediator.Send(command, ct);
+        return NoContent();
+    }
+
+    /// <summary>
+    /// Get the number of registered players.
     /// </summary>
     [HttpGet("player-count")]
     [ProducesResponseType(typeof(ApiResponse<int>), StatusCodes.Status200OK)]

@@ -18,7 +18,24 @@
       "Bash(git commit:*)",
       "Bash(cd:*)",
       "Bash(grep:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(echo:*)",
+      "Bash(powershell -Command \"Add-Type -AssemblyName System.IO.Compression.FileSystem; $zip = [System.IO.Compression.ZipFile]::OpenRead\\(''telegram.bot.22.0.0.nupkg''\\); $zip.Entries | Where-Object { $_.Name -like ''PhotoSize*'' } | Select-Object FullName\")",
+      "Bash(powershell -Command \"\n\\\\$zip = [System.IO.Compression.ZipFile]::OpenRead\\('C:/Users/USER/.nuget/packages/telegram.bot/22.0.0/telegram.bot.22.0.0.nupkg'\\)\n\\\\$entry = \\\\$zip.Entries | Where-Object { \\\\$_.FullName -like '*Types.cs*' -or \\\\$_.FullName -like '*PhotoSize*' } | Select-Object -First 5\n\\\\$entry | ForEach-Object { \\\\$_.FullName }\n\\\\$zip.Dispose\\(\\)\n\")",
+      "Bash(docker-compose ps:*)",
+      "Bash(git push:*)",
+      "Bash(python3:*)",
+      "Bash(powershell -Command \"\n\\\\$content = Get-Content 'D:/DEV/SmartAgronom/src/AqlliAgronom.Infrastructure/Telegram/TelegramUpdateHandler.cs' -Raw -Encoding UTF8\n\\\\$start = \\\\$content.IndexOf\\('    private async Task PromoteUserAsync'\\)\n\\\\$end = \\\\$content.IndexOf\\('    // ── Farmer order flow'\\)\n\\\\$chunk = \\\\$content.Substring\\(\\\\$start, \\\\$end - \\\\$start\\)\nWrite-Output \\\\$chunk\n\")",
+      "WebFetch(domain:github.com)",
+      "Bash(dotnet ef:*)",
+      "Bash(git:*)",
+      "Bash(curl -s --max-time 5 -o /dev/null -w \"%{http_code}\" http://math.fastergo.uz)",
+      "Bash(curl -sk --max-time 5 -o /dev/null -w \"%{http_code}\" https://math.fastergo.uz)",
+      "Bash(curl -sk --max-time 5 https://math.fastergo.uz)",
+      "Bash(curl -sv --max-time 5 https://math.fastergo.uz)",
+      "Bash(node -e \":*)",
+      "Bash(node \"D:/DEV/SmartAgronom/mathgame/_validate.js\")",
+      "Bash(awk:*)"
     ]
   }
 }
