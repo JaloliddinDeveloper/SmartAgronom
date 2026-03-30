@@ -250,8 +250,8 @@ window.HISTORY_DATA = {
     {q:"Qadimgi Xorazm yozuvi qaysi alfavitga asoslangan edi?",
      o:["Arab","Arameya","Lotin","Yunoncha"],c:1},
 
-    {q:"Miloddan avvalgi IV asrda Markaziy Osiyoda qaysi hukmdor islohot o'tkazdi?",
-     o:["Kir II","Doro I","Aleksandr Makedonskiy","Xerks"],c:0},
+    {q:"Miloddan avvalgi IV asrda Markaziy Osiyoga bostirib kelgan mashhur hukmdor kim edi?",
+     o:["Kir II","Doro I","Aleksandr Makedonskiy","Xerks"],c:2},
 
     {q:"'Movarounnahr' so'zi nima degan ma'noni anglatadi?",
      o:["Tog' ortidagi joy","Daryo ortidagi joy (Amudaryo ortida)","Cho'l mamlakati","Sharq mamlakatlar"],c:1},
@@ -451,8 +451,8 @@ window.HISTORY_DATA = {
     {q:"Ikkinchi Jahon urushida O'zbekistondan necha kishi qatnashdi?",
      o:["100 000 dan ortiq","1 milliondan ortiq","500 000 ga yaqin","2 million"],c:1},
 
-    {q:"Mashhur o'zbek generali Sobir Rahimov qaysi janglarda qahramon bo'ldi?",
-     o:["Leningrad mudofaasida","Berlinga yurish janglari va Sharqiy front janglari","Stalingrad jangi","Qrim jangi"],c:0},
+    {q:"Mashhur o'zbek generali Sobir Rahimov qayerda shahid bo'ldi?",
+     o:["Leningrad yaqinida","Dantsig (Gdansk) janglari paytida, 1945 yil mart","Stalingrad jangi","Berlin yaqinida"],c:1},
 
     {q:"Ikkinchi Jahon urushida O'zbekistonga ko'chirilgan bolalar yetimxonalari qaerdan keltirildi?",
      o:["Ukrainadan","Leningrad, Ukraina va boshqa hududlardan","Belarusdan","Faqat Moskvadan"],c:1},
@@ -536,7 +536,7 @@ window.HISTORY_DATA = {
      o:["Qizil, sariq, yashil","Ko'k, oq va yashil (chiziqli), qizil chiziqlar bilan","Ko'k va oq","Yashil va sariq"],c:1},
 
     {q:"O'zbekiston bayrog'idagi yarim oy va 12 yulduz nimani anglatadi?",
-     o:["12 viloyatni","Tarixiy an'analar va islamiy ramzlar","12 oyni","Qadimgi sulolalarni"],c:0},
+     o:["12 viloyatni","Islomiy an'ana va 12 oyning ramzi","12 oyni","Qadimgi sulolalarni"],c:2},
 
     {q:"Samarqand qaysi UNESCO ro'yxatida?",
      o:["Tabiat merosi","Dunyo madaniy merosi (World Heritage)","Xavf ostidagi meros","Nomateriall meros"],c:1},
@@ -569,7 +569,7 @@ window.HISTORY_DATA = {
      o:["1991 yilda","1993 yilda","1995 yildan boshlab","2000 yilda"],c:2},
 
     {q:"Mustaqillik kuni O'zbekistonda qaysi sanada nishonlanadi?",
-     o:["1 sentabr","31 avgust","8 dekabr","20 iyun"],c:1},
+     o:["1 sentabr","31 avgust","8 dekabr","20 iyun"],c:0},
 
     {q:"Navro'z bayrami qaysi sanada nishonlanadi?",
      o:["1 yanvar","8 mart","21 mart","1 may"],c:2},
@@ -805,7 +805,7 @@ window.HISTORY_DATA = {
      o:["1990 yilda","1992 yilda","1994 yilda","2000 yilda"],c:1},
 
     {q:"Navoiy viloyati qachon tashkil etildi?",
-     o:["1974 yilda","1982 yilda","1991 yilda","1960 yilda"],c:0},
+     o:["1974 yilda","1982 yilda","1991 yilda","1960 yilda"],c:1},
 
     {q:"O'zbekistondagi Fergana-Toshkent avtomobil yo'li qanday tog' dovonlari orqali o'tadi?",
      o:["Kamchik dovoni","Toshkent dovoni","Chorvoq dovoni","Angren dovoni"],c:0},
