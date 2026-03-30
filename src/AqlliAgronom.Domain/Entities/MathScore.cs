@@ -24,8 +24,8 @@ public class MathScore : BaseEntity
         if (string.IsNullOrWhiteSpace(playerName))
             throw new DomainException("PLAYER_NAME_REQUIRED", "Player name is required.");
 
-        if (!new[] { "easy", "medium", "hard" }.Contains(difficulty))
-            throw new DomainException("INVALID_DIFFICULTY", "Difficulty must be easy, medium, or hard.");
+        if (string.IsNullOrWhiteSpace(difficulty) || difficulty.Length > 50)
+            throw new DomainException("INVALID_DIFFICULTY", "Difficulty must be a non-empty string (max 50 chars).");
 
         return new MathScore
         {

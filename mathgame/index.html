@@ -3,1338 +3,872 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MathRace ⚡ — Tez Hisoblash O'yini</title>
+<title>EduRace ⚡ — Bilim Musobaqasi</title>
+<script src="data.js"></script>
 <style>
-  :root {
-    --primary: #6c63ff;
-    --secondary: #ff6584;
-    --success: #43e97b;
-    --warning: #f7971e;
-    --danger: #f64f59;
-    --dark: #0f0c29;
-    --card: rgba(255,255,255,0.08);
-    --text: #ffffff;
-    --shadow: 0 8px 32px rgba(0,0,0,0.3);
-  }
+:root{--primary:#6c63ff;--geo:#10b981;--hist:#f59e0b;--eng:#3b82f6;--danger:#f64f59;--success:#43e97b;--card:rgba(255,255,255,.08);--shadow:0 8px 32px rgba(0,0,0,.3)}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:linear-gradient(135deg,#0f0c29 0%,#302b63 50%,#24243e 100%);min-height:100vh;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative}
+.bg-particles{position:fixed;inset:0;pointer-events:none;z-index:0}
+.particle{position:absolute;border-radius:50%;opacity:.15;animation:float linear infinite}
+@keyframes float{0%{transform:translateY(100vh) rotate(0deg);opacity:0}10%{opacity:.15}90%{opacity:.15}100%{transform:translateY(-100px) rotate(720deg);opacity:0}}
+#app{position:relative;z-index:1;width:100%;max-width:580px;padding:16px}
+.screen{display:none;animation:slideIn .4s cubic-bezier(.34,1.56,.64,1)}
+.screen.active{display:block}
+@keyframes slideIn{from{opacity:0;transform:translateY(30px) scale(.95)}to{opacity:1;transform:translateY(0) scale(1)}}
+.card{background:var(--card);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.12);border-radius:24px;padding:36px 32px;box-shadow:var(--shadow)}
+h1{font-size:2.6rem;font-weight:900;letter-spacing:-1px}
+h2{font-size:1.8rem;font-weight:800}
+h3{font-size:1.3rem;font-weight:700}
+.gradient-text{background:linear-gradient(90deg,#a78bfa,#f472b6,#fb923c);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.subtitle{color:rgba(255,255,255,.6);font-size:.95rem;margin-top:6px}
 
-  * { margin: 0; padding: 0; box-sizing: border-box; }
+/* ── Hub ── */
+.hub-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.player-chip{background:rgba(108,99,255,.2);border:1px solid rgba(108,99,255,.4);border-radius:50px;padding:8px 18px;font-size:.95rem;font-weight:700}
+.subject-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:4px 0 20px}
+.subject-card{background:rgba(255,255,255,.07);border:2px solid rgba(255,255,255,.1);border-radius:18px;padding:20px 16px;cursor:pointer;transition:all .2s;text-align:left;color:#fff;position:relative;overflow:hidden}
+.subject-card::before{content:'';position:absolute;inset:0;opacity:0;transition:opacity .2s}
+.subject-card:hover{transform:translateY(-3px);box-shadow:0 12px 30px rgba(0,0,0,.3)}
+.subject-card:hover::before{opacity:1}
+.subject-card[data-s="math"]{border-color:rgba(108,99,255,.35)}
+.subject-card[data-s="math"]::before{background:linear-gradient(135deg,rgba(108,99,255,.2),transparent)}
+.subject-card[data-s="geo"]{border-color:rgba(16,185,129,.35)}
+.subject-card[data-s="geo"]::before{background:linear-gradient(135deg,rgba(16,185,129,.2),transparent)}
+.subject-card[data-s="hist"]{border-color:rgba(245,158,11,.35)}
+.subject-card[data-s="hist"]::before{background:linear-gradient(135deg,rgba(245,158,11,.2),transparent)}
+.subject-card[data-s="eng"]{border-color:rgba(59,130,246,.35)}
+.subject-card[data-s="eng"]::before{background:linear-gradient(135deg,rgba(59,130,246,.2),transparent)}
+.sc-icon{font-size:2.2rem;display:block;margin-bottom:8px}
+.sc-title{font-size:1.1rem;font-weight:800;display:block;margin-bottom:2px}
+.sc-sub{font-size:.75rem;color:rgba(255,255,255,.5)}
+.sc-badge{position:absolute;top:10px;right:10px;font-size:.65rem;font-weight:700;padding:3px 8px;border-radius:50px;background:rgba(255,255,255,.1)}
 
-  body {
-    font-family: 'Segoe UI', system-ui, sans-serif;
-    background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
-    position: relative;
-  }
+/* ── Buttons ── */
+.btn{width:100%;padding:15px;border:none;border-radius:14px;font-size:1.1rem;font-weight:700;cursor:pointer;transition:transform .15s,box-shadow .15s;letter-spacing:.3px}
+.btn:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(0,0,0,.3)}
+.btn:active{transform:translateY(0)}
+.btn-primary{background:linear-gradient(135deg,#6c63ff,#a78bfa);color:#fff}
+.btn-geo{background:linear-gradient(135deg,#10b981,#34d399);color:#fff}
+.btn-hist{background:linear-gradient(135deg,#f59e0b,#fbbf24);color:#111}
+.btn-eng{background:linear-gradient(135deg,#3b82f6,#60a5fa);color:#fff}
+.btn-success{background:linear-gradient(135deg,#43e97b,#38f9d7);color:#0f2017}
+.btn-outline{background:transparent;border:2px solid rgba(255,255,255,.2);color:#fff;margin-top:10px}
+.btn-sm{padding:10px 16px;font-size:.9rem;width:auto;border-radius:10px}
 
-  /* ── Animated background particles ── */
-  .bg-particles { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
-  .particle {
-    position: absolute;
-    border-radius: 50%;
-    opacity: 0.15;
-    animation: float linear infinite;
-  }
-  @keyframes float {
-    0%   { transform: translateY(100vh) rotate(0deg); opacity: 0; }
-    10%  { opacity: 0.15; }
-    90%  { opacity: 0.15; }
-    100% { transform: translateY(-100px) rotate(720deg); opacity: 0; }
-  }
+/* ── Config screen ── */
+.config-header{display:flex;align-items:center;gap:12px;margin-bottom:24px}
+.back-btn{background:rgba(255,255,255,.1);border:none;color:#fff;width:38px;height:38px;border-radius:10px;cursor:pointer;font-size:1.1rem;flex-shrink:0}
+.picker-label{font-size:.85rem;color:rgba(255,255,255,.6);margin-bottom:10px}
+.picker-grid{display:grid;gap:8px;margin-bottom:20px}
+.picker-grid.col2{grid-template-columns:1fr 1fr}
+.picker-grid.col3{grid-template-columns:1fr 1fr 1fr}
+.picker-grid.col4{grid-template-columns:repeat(4,1fr)}
+.pick-btn{padding:11px 8px;background:rgba(255,255,255,.07);border:2px solid rgba(255,255,255,.12);border-radius:12px;color:rgba(255,255,255,.7);font-size:.85rem;font-weight:600;cursor:pointer;transition:all .2s;text-align:center}
+.pick-btn.active{color:#fff}
+.pick-btn[data-g].active{background:rgba(108,99,255,.3);border-color:#6c63ff}
+.pick-btn[data-topic].active{background:rgba(16,185,129,.3);border-color:#10b981}
+.pick-btn[data-period].active{background:rgba(245,158,11,.3);border-color:#f59e0b}
+.pick-btn[data-cat].active{background:rgba(59,130,246,.3);border-color:#3b82f6}
+.pick-btn[data-mode].active{background:rgba(59,130,246,.3);border-color:#3b82f6}
+.pick-btn[data-diff].active{background:rgba(108,99,255,.3);border-color:#6c63ff}
+.chips-wrap{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px}
+.chip{padding:7px 14px;background:rgba(255,255,255,.07);border:2px solid rgba(255,255,255,.12);border-radius:50px;color:rgba(255,255,255,.7);font-size:.8rem;font-weight:600;cursor:pointer;transition:all .2s}
+.chip.active{background:rgba(59,130,246,.3);border-color:#3b82f6;color:#fff}
 
-  /* ── Main container ── */
-  #app {
-    position: relative;
-    z-index: 1;
-    width: 100%;
-    max-width: 560px;
-    padding: 16px;
-  }
+/* ── Game screen ── */
+.game-topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.score-badge{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);border-radius:50px;padding:7px 16px;font-size:.85rem;font-weight:700}
+.score-badge .val{font-size:1.2rem;color:#fbbf24}
+.streak-badge{background:linear-gradient(135deg,rgba(251,191,36,.2),rgba(245,158,11,.2));border:1px solid rgba(251,191,36,.4);border-radius:50px;padding:7px 14px;font-size:.82rem;font-weight:700;color:#fbbf24;transition:transform .2s}
+.streak-badge.pop{animation:streakPop .4s cubic-bezier(.34,1.56,.64,1)}
+@keyframes streakPop{0%,100%{transform:scale(1)}50%{transform:scale(1.25)}}
+.timer-wrap{display:flex;flex-direction:column;align-items:center;margin-bottom:20px;position:relative}
+.timer-ring{transform:rotate(-90deg)}
+.timer-ring-bg{fill:none;stroke:rgba(255,255,255,.1);stroke-width:6}
+.timer-ring-fg{fill:none;stroke-width:6;stroke-linecap:round;transition:stroke-dashoffset 1s linear,stroke .5s}
+.timer-text{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:1.7rem;font-weight:900;color:#fff;pointer-events:none}
+.timer-label{font-size:.7rem;color:rgba(255,255,255,.4);margin-top:2px}
+.op-badge{display:inline-block;padding:4px 14px;border-radius:50px;font-size:.75rem;font-weight:700;margin-bottom:8px;letter-spacing:1px;text-transform:uppercase}
+.op-math{background:rgba(108,99,255,.2);color:#a78bfa;border:1px solid rgba(108,99,255,.4)}
+.op-geo{background:rgba(16,185,129,.2);color:#34d399;border:1px solid rgba(16,185,129,.4)}
+.op-hist{background:rgba(245,158,11,.2);color:#fbbf24;border:1px solid rgba(245,158,11,.4)}
+.op-eng{background:rgba(59,130,246,.2);color:#60a5fa;border:1px solid rgba(59,130,246,.4)}
+.op-add{background:rgba(67,233,123,.2);color:#43e97b;border:1px solid rgba(67,233,123,.4)}
+.op-sub{background:rgba(246,79,89,.2);color:#f87171;border:1px solid rgba(246,79,89,.4)}
+.op-mul{background:rgba(251,191,36,.2);color:#fbbf24;border:1px solid rgba(251,191,36,.4)}
+.op-div{background:rgba(167,139,250,.2);color:#a78bfa;border:1px solid rgba(167,139,250,.4)}
+.question-box{text-align:center;margin-bottom:24px;animation:qIn .35s cubic-bezier(.34,1.56,.64,1)}
+@keyframes qIn{from{opacity:0;transform:scale(.85)}to{opacity:1;transform:scale(1)}}
+.question-num{font-size:.82rem;color:rgba(255,255,255,.4);margin-bottom:5px}
+.question-text{font-size:2.4rem;font-weight:900;color:#fff;letter-spacing:-1px;text-shadow:0 0 40px rgba(167,139,250,.4);line-height:1.2}
+.question-text.small{font-size:1.5rem}
+.question-text.shake{animation:shake .5s}
+@keyframes shake{10%,90%{transform:translateX(-3px)}20%,80%{transform:translateX(6px)}30%,50%,70%{transform:translateX(-8px)}40%,60%{transform:translateX(8px)}}
+.options-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.option-btn{padding:16px 10px;background:rgba(255,255,255,.08);border:2px solid rgba(255,255,255,.12);border-radius:14px;color:#fff;font-size:1.2rem;font-weight:800;cursor:pointer;transition:all .15s;position:relative;overflow:hidden;line-height:1.3}
+.option-btn.text{font-size:.95rem;font-weight:600}
+.option-btn:hover:not(:disabled){background:rgba(108,99,255,.3);border-color:var(--primary);transform:scale(1.03)}
+.option-btn:disabled{cursor:default}
+.option-btn.correct{background:rgba(67,233,123,.25)!important;border-color:#43e97b!important;animation:correctPulse .5s}
+.option-btn.wrong{background:rgba(246,79,89,.25)!important;border-color:#f64f59!important;animation:wrongShake .4s}
+@keyframes correctPulse{0%{transform:scale(1)}40%{transform:scale(1.07)}100%{transform:scale(1)}}
+@keyframes wrongShake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.opt-label{display:block;font-size:.65rem;font-weight:600;opacity:.5;letter-spacing:1px;margin-bottom:2px;text-transform:uppercase}
+.progress-bar-wrap{margin-top:18px;background:rgba(255,255,255,.08);border-radius:50px;height:5px;overflow:hidden}
+.progress-bar-fill{height:100%;border-radius:50px;transition:width .3s}
+.progress-math{background:linear-gradient(90deg,#6c63ff,#a78bfa)}
+.progress-geo{background:linear-gradient(90deg,#10b981,#34d399)}
+.progress-hist{background:linear-gradient(90deg,#f59e0b,#fbbf24)}
+.progress-eng{background:linear-gradient(90deg,#3b82f6,#60a5fa)}
 
-  .screen { display: none; animation: slideIn 0.4s cubic-bezier(0.34,1.56,0.64,1); }
-  .screen.active { display: block; }
-  @keyframes slideIn {
-    from { opacity: 0; transform: translateY(30px) scale(0.95); }
-    to   { opacity: 1; transform: translateY(0) scale(1); }
-  }
+/* ── Game Over ── */
+#screen-gameover{text-align:center}
+.gameover-emoji{font-size:4rem;display:block;margin-bottom:8px}
+.final-score{font-size:3.6rem;font-weight:900;line-height:1;margin:14px 0 4px}
+.final-label{color:rgba(255,255,255,.5);font-size:.88rem;margin-bottom:22px}
+.stats-row{display:flex;gap:10px;margin-bottom:24px}
+.stat-box{flex:1;background:rgba(255,255,255,.07);border-radius:12px;padding:12px 8px;font-size:.82rem;color:rgba(255,255,255,.6)}
+.stat-box .stat-val{display:block;font-size:1.5rem;font-weight:800;color:#fff;margin-bottom:2px}
 
-  /* ── Card ── */
-  .card {
-    background: var(--card);
-    backdrop-filter: blur(20px);
-    border: 1px solid rgba(255,255,255,0.12);
-    border-radius: 24px;
-    padding: 40px 36px;
-    box-shadow: var(--shadow);
-  }
+/* ── Leaderboard ── */
+.lb-filter-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.lb-filter-btn{padding:6px 12px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:8px;color:rgba(255,255,255,.6);font-size:.78rem;font-weight:600;cursor:pointer;transition:all .15s}
+.lb-filter-btn.active{background:rgba(108,99,255,.3);border-color:#6c63ff;color:#fff}
+.lb-row{display:flex;align-items:center;gap:12px;padding:12px 14px;background:rgba(255,255,255,.05);border-radius:12px;margin-bottom:7px;border:1px solid rgba(255,255,255,.07);transition:transform .15s;animation:lbIn .3s ease both}
+.lb-row:hover{transform:translateX(4px)}
+@keyframes lbIn{from{opacity:0;transform:translateX(-20px)}to{opacity:1;transform:translateX(0)}}
+.lb-row.me{background:rgba(108,99,255,.2);border-color:rgba(108,99,255,.5)}
+.lb-rank{font-size:1.2rem;font-weight:900;min-width:32px;text-align:center}
+.lb-rank.gold{color:#fbbf24;text-shadow:0 0 12px rgba(251,191,36,.6)}
+.lb-rank.silver{color:#94a3b8}
+.lb-rank.bronze{color:#d97706}
+.lb-name{flex:1;font-weight:600;font-size:.95rem}
+.lb-score-val{font-size:1.1rem;font-weight:800;color:#a78bfa}
+.empty-lb{text-align:center;padding:36px;color:rgba(255,255,255,.35);font-size:.9rem}
 
-  /* ── Typography ── */
-  h1 { font-size: 2.8rem; font-weight: 900; letter-spacing: -1px; }
-  h2 { font-size: 2rem; font-weight: 800; }
-  h3 { font-size: 1.4rem; font-weight: 700; }
-  .subtitle { color: rgba(255,255,255,0.6); font-size: 1rem; margin-top: 6px; }
-  .gradient-text {
-    background: linear-gradient(90deg, #a78bfa, #f472b6, #fb923c);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
+/* ── Name screen ── */
+#screen-welcome{text-align:center}
+.logo{font-size:4.5rem;display:block;margin-bottom:6px;animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
+.input-wrap input{width:100%;padding:15px 18px;background:rgba(255,255,255,.1);border:2px solid rgba(255,255,255,.2);border-radius:14px;color:#fff;font-size:1.05rem;outline:none;transition:border-color .2s,box-shadow .2s}
+.input-wrap input:focus{border-color:var(--primary);box-shadow:0 0 0 4px rgba(108,99,255,.25)}
+.input-wrap input::placeholder{color:rgba(255,255,255,.4)}
+.stats-mini{display:flex;gap:10px;margin:16px 0}
+.sm-box{flex:1;background:rgba(255,255,255,.06);border-radius:10px;padding:10px;text-align:center;font-size:.78rem;color:rgba(255,255,255,.5)}
+.sm-box strong{display:block;font-size:1.2rem;color:#a78bfa}
 
-  /* ── Welcome screen ── */
-  #screen-welcome { text-align: center; }
-  .logo { font-size: 5rem; margin-bottom: 8px; display: block; animation: pulse 2s ease-in-out infinite; }
-  @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.08)} }
-
-  .name-form { margin-top: 32px; }
-  .input-wrap { position: relative; margin-bottom: 20px; }
-  .input-wrap input {
-    width: 100%;
-    padding: 16px 20px;
-    background: rgba(255,255,255,0.1);
-    border: 2px solid rgba(255,255,255,0.2);
-    border-radius: 14px;
-    color: #fff;
-    font-size: 1.1rem;
-    outline: none;
-    transition: border-color 0.2s, box-shadow 0.2s;
-  }
-  .input-wrap input:focus {
-    border-color: var(--primary);
-    box-shadow: 0 0 0 4px rgba(108,99,255,0.25);
-  }
-  .input-wrap input::placeholder { color: rgba(255,255,255,0.4); }
-
-  /* ── Buttons ── */
-  .btn {
-    width: 100%;
-    padding: 16px;
-    border: none;
-    border-radius: 14px;
-    font-size: 1.15rem;
-    font-weight: 700;
-    cursor: pointer;
-    transition: transform 0.15s, box-shadow 0.15s;
-    letter-spacing: 0.3px;
-  }
-  .btn:hover  { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.3); }
-  .btn:active { transform: translateY(0); }
-  .btn-primary {
-    background: linear-gradient(135deg, #6c63ff, #a78bfa);
-    color: #fff;
-  }
-  .btn-success {
-    background: linear-gradient(135deg, #43e97b, #38f9d7);
-    color: #0f2017;
-  }
-  .btn-outline {
-    background: transparent;
-    border: 2px solid rgba(255,255,255,0.25);
-    color: #fff;
-    margin-top: 12px;
-  }
-  .btn-danger {
-    background: linear-gradient(135deg, #f64f59, #c0392b);
-    color: #fff;
-  }
-
-  /* ── Difficulty picker ── */
-  .difficulty-row {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 24px;
-  }
-  .diff-btn {
-    flex: 1;
-    padding: 12px 8px;
-    border: 2px solid rgba(255,255,255,0.15);
-    background: rgba(255,255,255,0.06);
-    border-radius: 12px;
-    color: rgba(255,255,255,0.7);
-    font-size: 0.85rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s;
-    text-align: center;
-  }
-  .diff-btn.active {
-    border-color: var(--primary);
-    background: rgba(108,99,255,0.25);
-    color: #fff;
-  }
-  .diff-btn span { display: block; font-size: 1.3rem; margin-bottom: 2px; }
-
-  /* ── Game screen ── */
-  #screen-game {}
-
-  /* Top bar */
-  .game-topbar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-  }
-  .score-badge {
-    background: rgba(255,255,255,0.1);
-    border: 1px solid rgba(255,255,255,0.15);
-    border-radius: 50px;
-    padding: 8px 18px;
-    font-size: 0.9rem;
-    font-weight: 700;
-    color: #fff;
-  }
-  .score-badge .val { font-size: 1.3rem; color: #fbbf24; }
-  .streak-badge {
-    background: linear-gradient(135deg, rgba(251,191,36,0.2), rgba(245,158,11,0.2));
-    border: 1px solid rgba(251,191,36,0.4);
-    border-radius: 50px;
-    padding: 8px 14px;
-    font-size: 0.85rem;
-    font-weight: 700;
-    color: #fbbf24;
-    transition: transform 0.2s;
-  }
-  .streak-badge.pop { animation: streakPop 0.4s cubic-bezier(0.34,1.56,0.64,1); }
-  @keyframes streakPop { 0%,100%{transform:scale(1)} 50%{transform:scale(1.25)} }
-
-  /* Timer ring */
-  .timer-wrap {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    margin-bottom: 24px;
-    position: relative;
-  }
-  .timer-ring { transform: rotate(-90deg); }
-  .timer-ring-bg { fill: none; stroke: rgba(255,255,255,0.1); stroke-width: 6; }
-  .timer-ring-fg {
-    fill: none;
-    stroke-width: 6;
-    stroke-linecap: round;
-    transition: stroke-dashoffset 1s linear, stroke 0.5s;
-  }
-  .timer-text {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%,-50%);
-    font-size: 1.8rem;
-    font-weight: 900;
-    color: #fff;
-    line-height: 1;
-    pointer-events: none;
-  }
-  .timer-label { font-size: 0.75rem; color: rgba(255,255,255,0.4); margin-top: 2px; }
-
-  /* Operation badge */
-  .op-badge {
-    display: inline-block;
-    padding: 4px 16px;
-    border-radius: 50px;
-    font-size: 0.8rem;
-    font-weight: 700;
-    margin-bottom: 10px;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-  }
-  .op-add    { background: rgba(67,233,123,0.2);  color: #43e97b; border: 1px solid rgba(67,233,123,0.4); }
-  .op-sub    { background: rgba(246,79,89,0.2);   color: #f87171; border: 1px solid rgba(246,79,89,0.4); }
-  .op-mul    { background: rgba(251,191,36,0.2);  color: #fbbf24; border: 1px solid rgba(251,191,36,0.4); }
-  .op-div    { background: rgba(167,139,250,0.2); color: #a78bfa; border: 1px solid rgba(167,139,250,0.4); }
-
-  /* Question */
-  .question-box {
-    text-align: center;
-    margin-bottom: 28px;
-    animation: questionIn 0.35s cubic-bezier(0.34,1.56,0.64,1);
-  }
-  @keyframes questionIn {
-    from { opacity:0; transform:scale(0.8) translateY(-10px); }
-    to   { opacity:1; transform:scale(1) translateY(0); }
-  }
-  .question-num { font-size: 0.85rem; color: rgba(255,255,255,0.4); margin-bottom: 6px; }
-  .question-text {
-    font-size: 3.2rem;
-    font-weight: 900;
-    color: #fff;
-    letter-spacing: -1px;
-    text-shadow: 0 0 40px rgba(167,139,250,0.5);
-  }
-  .question-text.shake {
-    animation: shake 0.5s cubic-bezier(0.36,0.07,0.19,0.97);
-  }
-  @keyframes shake {
-    10%,90%  { transform:translateX(-3px); }
-    20%,80%  { transform:translateX(6px);  }
-    30%,50%,70% { transform:translateX(-8px); }
-    40%,60%  { transform:translateX(8px);  }
-  }
-
-  /* Answer options */
-  .options-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-  }
-  .option-btn {
-    padding: 18px 12px;
-    background: rgba(255,255,255,0.08);
-    border: 2px solid rgba(255,255,255,0.12);
-    border-radius: 16px;
-    color: #fff;
-    font-size: 1.4rem;
-    font-weight: 800;
-    cursor: pointer;
-    transition: all 0.15s;
-    position: relative;
-    overflow: hidden;
-  }
-  .option-btn::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(135deg, transparent, rgba(255,255,255,0.05));
-    pointer-events: none;
-  }
-  .option-btn:hover:not(:disabled) {
-    background: rgba(108,99,255,0.3);
-    border-color: var(--primary);
-    transform: scale(1.03);
-  }
-  .option-btn:disabled { cursor: default; }
-  .option-btn.correct {
-    background: rgba(67,233,123,0.25) !important;
-    border-color: #43e97b !important;
-    animation: correctPulse 0.5s;
-  }
-  .option-btn.wrong {
-    background: rgba(246,79,89,0.25) !important;
-    border-color: #f64f59 !important;
-    animation: wrongShake 0.4s;
-  }
-  @keyframes correctPulse {
-    0%  { transform:scale(1); }
-    40% { transform:scale(1.08); }
-    100%{ transform:scale(1); }
-  }
-  @keyframes wrongShake {
-    0%,100%{ transform:translateX(0); }
-    25%    { transform:translateX(-6px); }
-    75%    { transform:translateX(6px); }
-  }
-
-  .option-label {
-    display: block;
-    font-size: 0.7rem;
-    font-weight: 600;
-    opacity: 0.5;
-    letter-spacing: 1px;
-    margin-bottom: 2px;
-    text-transform: uppercase;
-  }
-
-  /* Progress bar */
-  .progress-bar-wrap {
-    margin-top: 20px;
-    background: rgba(255,255,255,0.08);
-    border-radius: 50px;
-    height: 6px;
-    overflow: hidden;
-  }
-  .progress-bar-fill {
-    height: 100%;
-    background: linear-gradient(90deg, #6c63ff, #a78bfa);
-    border-radius: 50px;
-    transition: width 0.3s;
-  }
-
-  /* ── Game Over screen ── */
-  #screen-gameover { text-align: center; }
-  .gameover-emoji { font-size: 4.5rem; display: block; margin-bottom: 8px; }
-  .final-score {
-    font-size: 4rem;
-    font-weight: 900;
-    line-height: 1;
-    margin: 16px 0 4px;
-  }
-  .final-label { color: rgba(255,255,255,0.5); font-size: 0.9rem; margin-bottom: 24px; }
-  .stats-row {
-    display: flex;
-    gap: 12px;
-    margin-bottom: 28px;
-  }
-  .stat-box {
-    flex: 1;
-    background: rgba(255,255,255,0.07);
-    border-radius: 14px;
-    padding: 14px 10px;
-    font-size: 0.85rem;
-    color: rgba(255,255,255,0.6);
-  }
-  .stat-box .stat-val {
-    display: block;
-    font-size: 1.6rem;
-    font-weight: 800;
-    color: #fff;
-    margin-bottom: 2px;
-  }
-
-  /* ── Leaderboard screen ── */
-  #screen-leaderboard {}
-  .leaderboard-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 20px;
-  }
-  .leaderboard-list { margin-bottom: 20px; }
-  .lb-row {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    padding: 14px 16px;
-    background: rgba(255,255,255,0.05);
-    border-radius: 14px;
-    margin-bottom: 8px;
-    border: 1px solid rgba(255,255,255,0.07);
-    transition: transform 0.15s;
-    animation: lbRowIn 0.3s ease both;
-  }
-  .lb-row:hover { transform: translateX(4px); }
-  @keyframes lbRowIn {
-    from { opacity:0; transform:translateX(-20px); }
-    to   { opacity:1; transform:translateX(0); }
-  }
-  .lb-row.highlight {
-    background: rgba(108,99,255,0.2);
-    border-color: rgba(108,99,255,0.5);
-  }
-  .lb-rank {
-    font-size: 1.3rem;
-    font-weight: 900;
-    min-width: 36px;
-    text-align: center;
-  }
-  .lb-rank.gold   { color: #fbbf24; text-shadow: 0 0 12px rgba(251,191,36,0.6); }
-  .lb-rank.silver { color: #94a3b8; }
-  .lb-rank.bronze { color: #d97706; }
-  .lb-name { flex: 1; font-weight: 600; font-size: 1rem; }
-  .lb-score { font-size: 1.2rem; font-weight: 800; color: #a78bfa; }
-  .lb-correct { font-size: 0.8rem; color: rgba(255,255,255,0.4); text-align: right; }
-
-  .empty-lb {
-    text-align: center;
-    padding: 40px;
-    color: rgba(255,255,255,0.35);
-    font-size: 0.95rem;
-  }
-
-  /* ── Confetti canvas ── */
-  #confetti-canvas {
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    z-index: 100;
-  }
-
-  /* ── Floating +points ── */
-  .float-pts {
-    position: fixed;
-    font-size: 1.6rem;
-    font-weight: 900;
-    color: #fbbf24;
-    pointer-events: none;
-    z-index: 200;
-    animation: floatUp 1.2s ease-out forwards;
-  }
-  @keyframes floatUp {
-    0%   { opacity:1; transform:translateY(0) scale(1); }
-    100% { opacity:0; transform:translateY(-80px) scale(1.3); }
-  }
-
-  /* ── Misc ── */
-  .divider {
-    border: none;
-    border-top: 1px solid rgba(255,255,255,0.08);
-    margin: 20px 0;
-  }
-  .text-center { text-align: center; }
-  .mt-4 { margin-top: 16px; }
-  .mb-2 { margin-bottom: 8px; }
-  .welcome-stats {
-    display: flex;
-    gap: 12px;
-    margin: 20px 0;
-  }
-  .ws-box {
-    flex: 1;
-    background: rgba(255,255,255,0.06);
-    border-radius: 12px;
-    padding: 12px;
-    text-align: center;
-    font-size: 0.8rem;
-    color: rgba(255,255,255,0.5);
-  }
-  .ws-box strong { display: block; font-size: 1.3rem; color: #a78bfa; }
-
-  /* ── Responsive ── */
-  @media (max-width: 400px) {
-    .card { padding: 28px 20px; }
-    .question-text { font-size: 2.4rem; }
-    h1 { font-size: 2.2rem; }
-    .option-btn { font-size: 1.2rem; padding: 14px 8px; }
-  }
+/* ── Misc ── */
+.divider{border:none;border-top:1px solid rgba(255,255,255,.08);margin:18px 0}
+.text-center{text-align:center}
+.mt-3{margin-top:12px}
+.mt-4{margin-top:16px}
+#confetti-canvas{position:fixed;inset:0;pointer-events:none;z-index:100}
+.float-pts{position:fixed;font-size:1.5rem;font-weight:900;color:#fbbf24;pointer-events:none;z-index:200;animation:floatUp 1.2s ease-out forwards}
+@keyframes floatUp{0%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-80px) scale(1.3)}}
+@media(max-width:400px){.card{padding:24px 18px}.question-text{font-size:1.9rem}.option-btn{font-size:1rem;padding:12px 8px}.subject-grid{grid-template-columns:1fr 1fr;gap:8px}}
 </style>
 </head>
 <body>
-
-<!-- Animated background -->
 <div class="bg-particles" id="bgParticles"></div>
-
-<!-- Confetti canvas -->
 <canvas id="confetti-canvas"></canvas>
-
 <div id="app">
 
-  <!-- ══ WELCOME SCREEN ══ -->
-  <div class="screen active" id="screen-welcome">
-    <div class="card">
-      <div class="text-center">
-        <span class="logo">⚡</span>
-        <h1 class="gradient-text">MathRace</h1>
-        <p class="subtitle">Tez his keting! Matematik musobaqasi</p>
+<!-- ══ WELCOME (new player) ══ -->
+<div class="screen active" id="screen-welcome">
+  <div class="card">
+    <div class="text-center">
+      <span class="logo">⚡</span>
+      <h1 class="gradient-text">EduRace</h1>
+      <p class="subtitle">Matematika · Geografiya · Tarix · Ingliz tili</p>
+    </div>
+    <div class="stats-mini" id="welcomeStats"></div>
+    <div style="margin-top:8px">
+      <p class="picker-label" style="margin-bottom:12px">Ismingizni kiriting:</p>
+      <div class="input-wrap" style="margin-bottom:16px">
+        <input type="text" id="playerName" placeholder="Masalan: Asilbek" maxlength="24" autocomplete="off">
       </div>
-
-      <div class="welcome-stats" id="welcomeStats"></div>
-
-      <!-- Returning player view (saved name) -->
-      <div id="returningView" style="display:none">
-        <div style="background:rgba(108,99,255,0.15);border:1px solid rgba(108,99,255,0.4);border-radius:16px;padding:16px 20px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between">
-          <div>
-            <div style="font-size:.75rem;color:rgba(255,255,255,.5);margin-bottom:2px">O'yinchi</div>
-            <div style="font-size:1.3rem;font-weight:800" id="savedNameDisplay"></div>
-          </div>
-          <button onclick="forgetPlayer()" style="background:none;border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:6px 12px;color:rgba(255,255,255,.5);font-size:.8rem;cursor:pointer">O'zgartirish</button>
-        </div>
-
-        <p style="color:rgba(255,255,255,0.6);font-size:0.9rem;margin-bottom:10px;">Qiyinlik darajasi:</p>
-        <div class="difficulty-row" id="diffRowReturning">
-          <div class="diff-btn active" data-diff="easy">
-            <span>🌱</span>Oson<br><small style="opacity:.6">1–20</small>
-          </div>
-          <div class="diff-btn" data-diff="medium">
-            <span>🔥</span>O'rta<br><small style="opacity:.6">1–50</small>
-          </div>
-          <div class="diff-btn" data-diff="hard">
-            <span>⚡</span>Qiyin<br><small style="opacity:.6">1–99</small>
-          </div>
-        </div>
-        <button class="btn btn-primary" onclick="startGame()">O'yinni Boshlash 🚀</button>
-        <button class="btn btn-outline" onclick="showLeaderboard()">🏆 Reyting Ko'rish</button>
-      </div>
-
-      <!-- New player view (enter name) -->
-      <div id="newPlayerView">
-        <p style="color:rgba(255,255,255,0.6);font-size:0.9rem;margin-bottom:14px;">Ismingizni kiriting:</p>
-        <div class="input-wrap">
-          <input type="text" id="playerName" placeholder="Masalan: Asilbek" maxlength="20" autocomplete="off">
-        </div>
-
-        <p style="color:rgba(255,255,255,0.6);font-size:0.9rem;margin-bottom:10px;">Qiyinlik darajasi:</p>
-        <div class="difficulty-row" id="diffRowNew">
-          <div class="diff-btn active" data-diff="easy">
-            <span>🌱</span>Oson<br><small style="opacity:.6">1–20</small>
-          </div>
-          <div class="diff-btn" data-diff="medium">
-            <span>🔥</span>O'rta<br><small style="opacity:.6">1–50</small>
-          </div>
-          <div class="diff-btn" data-diff="hard">
-            <span>⚡</span>Qiyin<br><small style="opacity:.6">1–99</small>
-          </div>
-        </div>
-
-        <button class="btn btn-primary" id="btnStart" onclick="startGame()">
-          O'yinni Boshlash 🚀
-        </button>
-        <button class="btn btn-outline" onclick="showLeaderboard()">
-          🏆 Reyting Ko'rish
-        </button>
-      </div>
+      <button class="btn btn-primary" onclick="saveNewPlayer()">Boshlash 🚀</button>
     </div>
   </div>
+</div>
 
-  <!-- ══ GAME SCREEN ══ -->
-  <div class="screen" id="screen-game">
-    <div class="card">
-      <!-- Top bar -->
-      <div class="game-topbar">
-        <div class="score-badge">
-          <span style="opacity:.6;font-size:.8rem">Ball: </span>
-          <span class="val" id="scoreDisplay">0</span>
-        </div>
-        <div id="streakBadge" class="streak-badge" style="display:none">
-          🔥 <span id="streakCount">0</span> ketma-ket
-        </div>
-        <div class="score-badge">
-          <span style="opacity:.6;font-size:.8rem">Savol: </span>
-          <span class="val" id="questionNum">1</span>
-        </div>
+<!-- ══ HUB ══ -->
+<div class="screen" id="screen-hub">
+  <div class="card">
+    <div class="hub-header">
+      <div>
+        <h2>Salom, <span id="hubName" class="gradient-text"></span>!</h2>
+        <p class="subtitle">Qaysi fanni o'rganasiz?</p>
       </div>
-
-      <!-- Timer ring -->
-      <div class="timer-wrap">
-        <svg class="timer-ring" width="90" height="90" viewBox="0 0 90 90">
-          <circle class="timer-ring-bg" cx="45" cy="45" r="38"/>
-          <circle class="timer-ring-fg" id="timerRing" cx="45" cy="45" r="38"
-            stroke-dasharray="238.76"
-            stroke-dashoffset="0"
-            stroke="#6c63ff"/>
-        </svg>
-        <div class="timer-text" id="timerText">10</div>
-        <div class="timer-label">soniya</div>
-      </div>
-
-      <!-- Operation badge + Question -->
-      <div class="question-box" id="questionBox">
-        <div id="opBadge" class="op-badge op-add">Qo'shish</div>
-        <p class="question-num" id="questionNumLabel">1-savol</p>
-        <div class="question-text" id="questionText">6 + 8 = ?</div>
-      </div>
-
-      <!-- Options -->
-      <div class="options-grid" id="optionsGrid"></div>
-
-      <!-- Progress -->
-      <div class="progress-bar-wrap">
-        <div class="progress-bar-fill" id="progressBar" style="width:0%"></div>
-      </div>
+      <button onclick="forgetPlayer()" style="background:none;border:1px solid rgba(255,255,255,.2);border-radius:10px;padding:7px 12px;color:rgba(255,255,255,.5);font-size:.8rem;cursor:pointer">✏️ Ism</button>
     </div>
-  </div>
-
-  <!-- ══ GAME OVER SCREEN ══ -->
-  <div class="screen" id="screen-gameover">
-    <div class="card">
-      <div class="text-center">
-        <span class="gameover-emoji" id="gameoverEmoji">😢</span>
-        <h2 id="gameoverTitle">O'yin tugadi!</h2>
-        <div class="final-score gradient-text" id="finalScore">0</div>
-        <p class="final-label">umumiy ball</p>
-      </div>
-
-      <div class="stats-row">
-        <div class="stat-box">
-          <span class="stat-val" id="statCorrect">0</span>
-          to'g'ri
-        </div>
-        <div class="stat-box">
-          <span class="stat-val" id="statBest">0</span>
-          eng uzun
-        </div>
-        <div class="stat-box">
-          <span class="stat-val" id="statLevel">1</span>
-          daraja
-        </div>
-      </div>
-
-      <button class="btn btn-success" onclick="startGame(true)">
-        🔄 Qayta O'ynash
+    <div class="stats-mini" id="hubStats"></div>
+    <div class="subject-grid">
+      <button class="subject-card" data-s="math" onclick="openConfig('math')">
+        <span class="sc-icon">🔢</span>
+        <span class="sc-title">Matematika</span>
+        <span class="sc-sub">4-11 sinf · Umumiy</span>
+        <span class="sc-badge" style="color:#a78bfa">∞ savol</span>
       </button>
-      <button class="btn btn-outline" onclick="showLeaderboard()">
-        🏆 Reytingni Ko'rish
+      <button class="subject-card" data-s="geo" onclick="openConfig('geo')">
+        <span class="sc-icon">🌍</span>
+        <span class="sc-title">Geografiya</span>
+        <span class="sc-sub">148 davlat · 600+ savol</span>
+        <span class="sc-badge" style="color:#34d399">Dunyo</span>
       </button>
-      <button class="btn btn-outline" onclick="showWelcome()">
-        🏠 Bosh Sahifa
+      <button class="subject-card" data-s="hist" onclick="openConfig('hist')">
+        <span class="sc-icon">📜</span>
+        <span class="sc-title">Tarix</span>
+        <span class="sc-sub">O'zbekiston tarixi</span>
+        <span class="sc-badge" style="color:#fbbf24">213 savol</span>
+      </button>
+      <button class="subject-card" data-s="eng" onclick="openConfig('eng')">
+        <span class="sc-icon">🇬🇧</span>
+        <span class="sc-title">Ingliz tili</span>
+        <span class="sc-sub">583 so'z · 22 mavzu</span>
+        <span class="sc-badge" style="color:#60a5fa">So'zlar</span>
       </button>
     </div>
+    <button class="btn btn-outline" onclick="showLeaderboard()">🏆 Reyting ko'rish</button>
   </div>
+</div>
 
-  <!-- ══ LEADERBOARD SCREEN ══ -->
-  <div class="screen" id="screen-leaderboard">
-    <div class="card">
-      <div class="leaderboard-header">
-        <h2>🏆 Reyting</h2>
-        <button onclick="showWelcome()" style="background:none;border:none;color:rgba(255,255,255,.5);font-size:1.4rem;cursor:pointer">✕</button>
+<!-- ══ CONFIG ══ -->
+<div class="screen" id="screen-config">
+  <div class="card">
+    <div class="config-header">
+      <button class="back-btn" onclick="showScreen('screen-hub')">←</button>
+      <div>
+        <h3 id="configTitle"></h3>
+        <p class="subtitle" id="configSub"></p>
       </div>
-
-      <div style="display:flex;gap:8px;margin-bottom:16px;font-size:.8rem;color:rgba(255,255,255,.4)">
-        <div style="background:rgba(255,255,255,.06);border-radius:8px;padding:6px 12px">
-          🌱 Oson
-          <input type="radio" name="lbFilter" value="easy" id="fEasy" style="margin-left:4px" onchange="renderLeaderboard()">
-        </div>
-        <div style="background:rgba(255,255,255,.06);border-radius:8px;padding:6px 12px">
-          🔥 O'rta
-          <input type="radio" name="lbFilter" value="medium" id="fMedium" style="margin-left:4px" onchange="renderLeaderboard()">
-        </div>
-        <div style="background:rgba(255,255,255,.06);border-radius:8px;padding:6px 12px">
-          ⚡ Qiyin
-          <input type="radio" name="lbFilter" value="hard" id="fHard" style="margin-left:4px" onchange="renderLeaderboard()">
-        </div>
-        <div style="background:rgba(255,255,255,.08);border-radius:8px;padding:6px 12px;border:1px solid rgba(255,255,255,.15)">
-          Barchasi
-          <input type="radio" name="lbFilter" value="all" id="fAll" checked style="margin-left:4px" onchange="renderLeaderboard()">
-        </div>
-      </div>
-
-      <div class="leaderboard-list" id="leaderboardList"></div>
-
-      <button class="btn btn-outline" onclick="showWelcome()">← Orqaga</button>
     </div>
+    <div id="configBody"></div>
   </div>
+</div>
+
+<!-- ══ GAME ══ -->
+<div class="screen" id="screen-game">
+  <div class="card">
+    <div class="game-topbar">
+      <div class="score-badge">Ball: <span class="val" id="scoreDisplay">0</span></div>
+      <div id="streakBadge" class="streak-badge" style="display:none">🔥 <span id="streakCount">0</span></div>
+      <div class="score-badge">Savol: <span class="val" id="questionNum">1</span></div>
+    </div>
+    <div class="timer-wrap">
+      <svg class="timer-ring" width="88" height="88" viewBox="0 0 88 88">
+        <circle class="timer-ring-bg" cx="44" cy="44" r="37"/>
+        <circle class="timer-ring-fg" id="timerRing" cx="44" cy="44" r="37" stroke-dasharray="232.5" stroke-dashoffset="0" stroke="#6c63ff"/>
+      </svg>
+      <div class="timer-text" id="timerText">10</div>
+      <div class="timer-label">soniya</div>
+    </div>
+    <div class="question-box" id="questionBox">
+      <div id="opBadge" class="op-badge op-math">Matematika</div>
+      <p class="question-num" id="qNumLabel">1-savol</p>
+      <div class="question-text" id="questionText">?</div>
+    </div>
+    <div class="options-grid" id="optionsGrid"></div>
+    <div class="progress-bar-wrap"><div class="progress-bar-fill progress-math" id="progressBar" style="width:0%"></div></div>
+  </div>
+</div>
+
+<!-- ══ GAME OVER ══ -->
+<div class="screen" id="screen-gameover">
+  <div class="card">
+    <div class="text-center">
+      <span class="gameover-emoji" id="gameoverEmoji">😢</span>
+      <h2 id="gameoverTitle">O'yin tugadi!</h2>
+      <div class="final-score gradient-text" id="finalScore">0</div>
+      <p class="final-label">umumiy ball</p>
+    </div>
+    <div class="stats-row">
+      <div class="stat-box"><span class="stat-val" id="statCorrect">0</span>to'g'ri</div>
+      <div class="stat-box"><span class="stat-val" id="statStreak">0</span>eng streak</div>
+      <div class="stat-box"><span class="stat-val" id="statQ">1</span>daraja</div>
+    </div>
+    <button class="btn btn-success" onclick="startGame(true)">🔄 Qayta o'ynash</button>
+    <button class="btn btn-outline" onclick="showLeaderboard()">🏆 Reyting</button>
+    <button class="btn btn-outline" onclick="showScreen('screen-hub')">🏠 Bosh sahifa</button>
+  </div>
+</div>
+
+<!-- ══ LEADERBOARD ══ -->
+<div class="screen" id="screen-leaderboard">
+  <div class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <h2>🏆 Reyting</h2>
+      <button onclick="showScreen('screen-hub')" style="background:none;border:none;color:rgba(255,255,255,.5);font-size:1.3rem;cursor:pointer">✕</button>
+    </div>
+    <div class="lb-filter-row" id="lbFilters"></div>
+    <div id="leaderboardList"></div>
+    <button class="btn btn-outline" onclick="showScreen('screen-hub')">← Orqaga</button>
+  </div>
+</div>
 
 </div><!-- /app -->
-
 <script>
-// ═══════════════════════════════════════════
-//  API
-// ═══════════════════════════════════════════
-const API_BASE = 'https://agronom.fastergo.uz/api/v1/math';
+// ════════════════════════════════════════════════════════
+//  PARTICLES
+// ════════════════════════════════════════════════════════
+(()=>{const w=document.getElementById('bgParticles');const c=['#6c63ff','#f472b6','#fb923c','#43e97b','#a78bfa'];for(let i=0;i<18;i++){const p=document.createElement('div');p.className='particle';const s=6+Math.random()*18;p.style.cssText=`width:${s}px;height:${s}px;left:${Math.random()*100}%;background:${c[Math.floor(Math.random()*5)]};animation-duration:${12+Math.random()*20}s;animation-delay:${Math.random()*-20}s;`;w.appendChild(p);}})();
 
-async function apiSubmitScore(data) {
-  try {
-    await fetch(`${API_BASE}/scores`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-  } catch(e) { /* offline — localStorage fallback */ }
-}
-
-async function apiFetchLeaderboard(difficulty) {
-  try {
-    const param = difficulty && difficulty !== 'all' ? `?difficulty=${difficulty}&limit=20` : '?limit=20';
-    const res   = await fetch(`${API_BASE}/scores${param}`);
-    if (!res.ok) return null;
-    const json  = await res.json();
-    return json.data; // IReadOnlyList<MathScoreDto>
-  } catch(e) { return null; }
-}
-
-// ═══════════════════════════════════════════
-//  STATE
-// ═══════════════════════════════════════════
-let state = {
-  playerName: '',
-  difficulty: 'easy',
-  score: 0,
-  correctCount: 0,
-  streak: 0,
-  bestStreak: 0,
-  questionIndex: 0,
-  timer: null,
-  timeLeft: 10,
-  answered: false,
-  currentAnswer: null,
-  levelReached: 1,
-};
-
-const TIMER_CIRCUMFERENCE = 238.76;
-
-// ═══════════════════════════════════════════
-//  DIFFICULTY CONFIG
-// ═══════════════════════════════════════════
-const diffConfig = {
-  easy:   { max: 20,  mulMax: 10, divMax: 10 },
-  medium: { max: 50,  mulMax: 12, divMax: 12 },
-  hard:   { max: 99,  mulMax: 20, divMax: 20 },
-};
-
-// ═══════════════════════════════════════════
-//  BG PARTICLES
-// ═══════════════════════════════════════════
-(function initParticles() {
-  const wrap = document.getElementById('bgParticles');
-  const colors = ['#6c63ff','#f472b6','#fb923c','#43e97b','#a78bfa'];
-  for (let i = 0; i < 20; i++) {
-    const p = document.createElement('div');
-    p.className = 'particle';
-    const size = 6 + Math.random() * 20;
-    const left  = Math.random() * 100;
-    const dur   = 12 + Math.random() * 20;
-    const delay = Math.random() * -20;
-    p.style.cssText = `
-      width:${size}px; height:${size}px;
-      left:${left}%;
-      background:${colors[Math.floor(Math.random()*colors.length)]};
-      animation-duration:${dur}s;
-      animation-delay:${delay}s;
-    `;
-    wrap.appendChild(p);
-  }
-})();
-
-// ═══════════════════════════════════════════
-//  AUDIO ENGINE (Web Audio API)
-// ═══════════════════════════════════════════
-const AudioCtx = window.AudioContext || window.webkitAudioContext;
-let audioCtx = null;
-function getAudioCtx() {
-  if (!audioCtx) audioCtx = new AudioCtx();
-  return audioCtx;
-}
-function playTone(freq, type, duration, gain=0.3) {
-  try {
-    const ctx = getAudioCtx();
-    const osc = ctx.createOscillator();
-    const g   = ctx.createGain();
-    osc.connect(g); g.connect(ctx.destination);
-    osc.type = type; osc.frequency.setValueAtTime(freq, ctx.currentTime);
-    g.gain.setValueAtTime(gain, ctx.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
-    osc.start(); osc.stop(ctx.currentTime + duration);
-  } catch(e){}
-}
-function sfxCorrect()  { playTone(880,'sine',0.1); setTimeout(()=>playTone(1320,'sine',0.15),80); }
-function sfxWrong()    { playTone(220,'sawtooth',0.3,0.2); }
-function sfxTick()     { playTone(440,'square',0.05,0.05); }
-function sfxGameOver() { [330,294,262].forEach((f,i)=>setTimeout(()=>playTone(f,'sawtooth',0.3,0.2),i*150)); }
-function sfxStreak()   { [523,659,784,1047].forEach((f,i)=>setTimeout(()=>playTone(f,'sine',0.1),i*60)); }
-
-// ═══════════════════════════════════════════
+// ════════════════════════════════════════════════════════
 //  CONFETTI
-// ═══════════════════════════════════════════
-const confCanvas = document.getElementById('confetti-canvas');
-const confCtx    = confCanvas.getContext('2d');
-let confParticles = [];
-let confRAF = null;
+// ════════════════════════════════════════════════════════
+const CC=document.getElementById('confetti-canvas');const CX=CC.getContext('2d');let CP=[],CRAF=null;
+function resizeCC(){CC.width=window.innerWidth;CC.height=window.innerHeight;}
+window.addEventListener('resize',resizeCC);resizeCC();
+function launchConfetti(x,y){const c=['#6c63ff','#f472b6','#fb923c','#43e97b','#fbbf24','#38bdf8'];for(let i=0;i<55;i++)CP.push({x,y,vx:(Math.random()-.5)*14,vy:(Math.random()-1.5)*10,color:c[Math.floor(Math.random()*6)],size:5+Math.random()*8,rot:Math.random()*360,rotS:(Math.random()-.5)*10,life:1});if(!CRAF)animCC();}
+function animCC(){CX.clearRect(0,0,CC.width,CC.height);CP=CP.filter(p=>p.life>0);CP.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.vy+=.35;p.rot+=p.rotS;p.life-=.018;CX.save();CX.globalAlpha=Math.max(0,p.life);CX.translate(p.x,p.y);CX.rotate(p.rot*Math.PI/180);CX.fillStyle=p.color;CX.fillRect(-p.size/2,-p.size/4,p.size,p.size/2);CX.restore();});if(CP.length>0){CRAF=requestAnimationFrame(animCC);}else CRAF=null;}
 
-function resizeConf() {
-  confCanvas.width  = window.innerWidth;
-  confCanvas.height = window.innerHeight;
-}
-window.addEventListener('resize', resizeConf);
-resizeConf();
+// ════════════════════════════════════════════════════════
+//  AUDIO
+// ════════════════════════════════════════════════════════
+let ACtx=null;
+function getAC(){if(!ACtx)ACtx=new(window.AudioContext||window.webkitAudioContext)();return ACtx;}
+function tone(f,t,d,g=.3){try{const c=getAC();const o=c.createOscillator();const gn=c.createGain();o.connect(gn);gn.connect(c.destination);o.type=t;o.frequency.setValueAtTime(f,c.currentTime);gn.gain.setValueAtTime(g,c.currentTime);gn.gain.exponentialRampToValueAtTime(.001,c.currentTime+d);o.start();o.stop(c.currentTime+d);}catch(e){}}
+function sfxOk(){tone(880,'sine',.1);setTimeout(()=>tone(1320,'sine',.15),80);}
+function sfxNo(){tone(220,'sawtooth',.3,.2);}
+function sfxTick(){tone(440,'square',.05,.05);}
+function sfxEnd(){[330,294,262].forEach((f,i)=>setTimeout(()=>tone(f,'sawtooth',.3,.2),i*150));}
+function sfxStreak(){[523,659,784,1047].forEach((f,i)=>setTimeout(()=>tone(f,'sine',.1),i*60));}
 
-function launchConfetti(x, y) {
-  const colors = ['#6c63ff','#f472b6','#fb923c','#43e97b','#fbbf24','#38bdf8'];
-  for (let i = 0; i < 60; i++) {
-    confParticles.push({
-      x, y,
-      vx: (Math.random() - 0.5) * 14,
-      vy: (Math.random() - 1.5) * 10,
-      color: colors[Math.floor(Math.random()*colors.length)],
-      size: 5 + Math.random() * 8,
-      rotation: Math.random() * 360,
-      rotSpeed: (Math.random()-0.5)*10,
-      life: 1,
-    });
-  }
-  if (!confRAF) animConf();
-}
-function animConf() {
-  confCtx.clearRect(0, 0, confCanvas.width, confCanvas.height);
-  confParticles = confParticles.filter(p => p.life > 0);
-  confParticles.forEach(p => {
-    p.x  += p.vx; p.y  += p.vy; p.vy += 0.35;
-    p.rotation += p.rotSpeed;
-    p.life -= 0.018;
-    confCtx.save();
-    confCtx.globalAlpha = Math.max(0, p.life);
-    confCtx.translate(p.x, p.y);
-    confCtx.rotate(p.rotation * Math.PI / 180);
-    confCtx.fillStyle = p.color;
-    confCtx.fillRect(-p.size/2, -p.size/4, p.size, p.size/2);
-    confCtx.restore();
-  });
-  if (confParticles.length > 0) { confRAF = requestAnimationFrame(animConf); }
-  else { confRAF = null; }
-}
-
-// ═══════════════════════════════════════════
+// ════════════════════════════════════════════════════════
 //  FLOATING POINTS
-// ═══════════════════════════════════════════
-function showFloatPts(pts, x, y) {
-  const el = document.createElement('div');
-  el.className = 'float-pts';
-  el.textContent = '+' + pts;
-  el.style.left = x + 'px';
-  el.style.top  = y + 'px';
-  document.body.appendChild(el);
-  setTimeout(() => el.remove(), 1200);
+// ════════════════════════════════════════════════════════
+function floatPts(pts,x,y){const e=document.createElement('div');e.className='float-pts';e.textContent='+'+pts;e.style.cssText=`left:${x}px;top:${y}px`;document.body.appendChild(e);setTimeout(()=>e.remove(),1200);}
+
+// ════════════════════════════════════════════════════════
+//  API
+// ════════════════════════════════════════════════════════
+const API='https://agronom.fastergo.uz/api/v1/math';
+async function apiSubmit(d){try{await fetch(`${API}/scores`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});}catch(e){}}
+async function apiFetch(subject){try{const r=await fetch(`${API}/scores?difficulty=${encodeURIComponent(subject)}&limit=20`);if(!r.ok)return null;const j=await r.json();return j.data;}catch(e){return null;}}
+
+// ════════════════════════════════════════════════════════
+//  PLAYER PERSISTENCE
+// ════════════════════════════════════════════════════════
+const PK='edurace_player_v1';
+const LSK='edurace_scores_v1';
+function getPlayer(){try{return JSON.parse(localStorage.getItem(PK));}catch(e){return null;}}
+function setPlayer(o){localStorage.setItem(PK,JSON.stringify(o));}
+function getLocalScores(){try{return JSON.parse(localStorage.getItem(LSK))||[];}catch(e){return[];}}
+function addLocalScore(e){const s=getLocalScores();s.push(e);s.sort((a,b)=>b.score-a.score);localStorage.setItem(LSK,JSON.stringify(s.slice(0,200)));}
+
+function saveNewPlayer(){
+  const n=document.getElementById('playerName').value.trim();
+  if(!n){document.getElementById('playerName').style.borderColor='#f64f59';return;}
+  setPlayer({name:n});goHub();
 }
+function forgetPlayer(){localStorage.removeItem(PK);showScreen('screen-welcome');}
 
-// ═══════════════════════════════════════════
-//  QUESTION GENERATION
-// ═══════════════════════════════════════════
-const OPS = ['+', '-', '×', '÷'];
-const OP_NAMES = { '+':'Qo\'shish', '-':'Ayirish', '×':'Ko\'paytirish', '÷':'Bo\'lish' };
-const OP_CLASSES = { '+':'op-add', '-':'op-sub', '×':'op-mul', '÷':'op-div' };
-
-function rnd(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
-
-function generateQuestion(qIndex) {
-  const cfg = diffConfig[state.difficulty];
-  const op  = OPS[Math.floor(Math.random() * 4)];
-  let a, b, answer;
-
-  if (op === '+') {
-    a = rnd(1, cfg.max); b = rnd(1, cfg.max);
-    answer = a + b;
-  } else if (op === '-') {
-    a = rnd(2, cfg.max); b = rnd(1, a);
-    answer = a - b;
-  } else if (op === '×') {
-    a = rnd(2, cfg.mulMax); b = rnd(2, cfg.mulMax);
-    answer = a * b;
-  } else {
-    b = rnd(2, cfg.divMax); a = b * rnd(2, cfg.divMax);
-    answer = a / b;
-  }
-
-  const question = `${a} ${op} ${b} = ?`;
-
-  // Generate 3 wrong options (unique, positive, different from answer)
-  const wrong = new Set();
-  while (wrong.size < 3) {
-    let w;
-    const delta = rnd(1, Math.max(5, Math.floor(answer * 0.3) + 2));
-    w = Math.random() < 0.5 ? answer + delta : Math.max(1, answer - delta);
-    if (w !== answer && w > 0) wrong.add(w);
-  }
-  const options = [answer, ...wrong].sort(() => Math.random() - 0.5);
-
-  return { question, answer, options, op };
-}
-
-// ═══════════════════════════════════════════
+// ════════════════════════════════════════════════════════
 //  SCREEN MANAGEMENT
-// ═══════════════════════════════════════════
-function showScreen(id) {
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  const s = document.getElementById(id);
-  s.classList.remove('active');
-  void s.offsetWidth; // reflow for animation
-  s.classList.add('active');
+// ════════════════════════════════════════════════════════
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  const s=document.getElementById(id);s.classList.remove('active');void s.offsetWidth;s.classList.add('active');
 }
-function showWelcome() {
-  clearTimer();
-  updateWelcomeStats();
-  showScreen('screen-welcome');
+async function goHub(){
+  const p=getPlayer();
+  document.getElementById('hubName').textContent=p?.name||'';
+  showScreen('screen-hub');
+  updateStats('hubStats');
 }
-function showLeaderboard() {
+async function showLeaderboard(){
   renderLeaderboard();
   showScreen('screen-leaderboard');
 }
 
-// ═══════════════════════════════════════════
-//  DIFFICULTY PICKER
-// ═══════════════════════════════════════════
-document.querySelectorAll('.diff-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    // Sync both rows
-    document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll(`.diff-btn[data-diff="${btn.dataset.diff}"]`).forEach(b => b.classList.add('active'));
-    state.difficulty = btn.dataset.diff;
-  });
-});
-
-// ═══════════════════════════════════════════
-//  PLAYER PERSISTENCE
-// ═══════════════════════════════════════════
-const PLAYER_KEY = 'mathrace_player_v1';
-
-function getSavedPlayer() {
-  try { return JSON.parse(localStorage.getItem(PLAYER_KEY)); } catch(e) { return null; }
-}
-function savePlayer(name, difficulty) {
-  localStorage.setItem(PLAYER_KEY, JSON.stringify({ name, difficulty }));
-}
-function forgetPlayer() {
-  localStorage.removeItem(PLAYER_KEY);
-  document.getElementById('returningView').style.display  = 'none';
-  document.getElementById('newPlayerView').style.display  = '';
-  document.getElementById('playerName').value = '';
-  document.getElementById('playerName').focus();
+// ════════════════════════════════════════════════════════
+//  STATS
+// ════════════════════════════════════════════════════════
+async function updateStats(elId){
+  const el=document.getElementById(elId);if(!el)return;
+  const all=getLocalScores();
+  if(!all.length){el.innerHTML='';return;}
+  const top=all[0];
+  el.innerHTML=`<div class="sm-box"><strong>${top.score}</strong>Rekord</div><div class="sm-box"><strong>${top.name.slice(0,8)}</strong>Lider</div><div class="sm-box"><strong>${all.length}</strong>O'yinlar</div>`;
 }
 
-// ═══════════════════════════════════════════
-//  WELCOME STATS
-// ═══════════════════════════════════════════
-async function updateWelcomeStats() {
-  const wrap = document.getElementById('welcomeStats');
-  // Try API
-  const apiScores = await apiFetchLeaderboard('all');
-  const all = apiScores
-    ? apiScores.map(s => ({ name: s.playerName, score: s.score }))
-    : getLeaderboard();
+// ════════════════════════════════════════════════════════
+//  CONFIG SCREENS
+// ════════════════════════════════════════════════════════
+const SUBJ_META={
+  math:{title:'🔢 Matematika',sub:'Daraja tanlang',cls:'btn-primary',prog:'progress-math'},
+  geo: {title:'🌍 Geografiya',sub:'Mavzu tanlang',cls:'btn-geo',prog:'progress-geo'},
+  hist:{title:'📜 Tarix',sub:'Davr tanlang',cls:'btn-hist',prog:'progress-hist'},
+  eng: {title:'🇬🇧 Ingliz tili',sub:'Kategoriya va rejim',cls:'btn-eng',prog:'progress-eng'},
+};
 
-  if (!all.length) { wrap.innerHTML = ''; return; }
-  const topScore = all[0].score;
-  const topName  = all[0].name;
-  const total    = all.length;
-  wrap.innerHTML = `
-    <div class="ws-box"><strong>${topScore}</strong>Rekord</div>
-    <div class="ws-box"><strong>${topName.slice(0,8)}</strong>Lider</div>
-    <div class="ws-box"><strong>${total}</strong>O'yinchi</div>
-  `;
+function openConfig(subj){
+  state.subject=subj;
+  const m=SUBJ_META[subj];
+  document.getElementById('configTitle').textContent=m.title;
+  document.getElementById('configSub').textContent=m.sub;
+  document.getElementById('configBody').innerHTML=buildConfigHTML(subj);
+  attachConfigListeners(subj);
+  showScreen('screen-config');
 }
 
-// ═══════════════════════════════════════════
-//  GAME START
-// ═══════════════════════════════════════════
-function startGame(replay = false) {
-  if (!replay) {
-    const saved = getSavedPlayer();
-    if (saved && document.getElementById('returningView').style.display !== 'none') {
-      // Returning player
-      state.playerName = saved.name;
-      state.difficulty = document.querySelector('#diffRowReturning .diff-btn.active')?.dataset.diff || saved.difficulty || 'easy';
-    } else {
-      // New player
-      const nameInput = document.getElementById('playerName');
-      const name = nameInput.value.trim();
-      if (!name) { nameInput.focus(); nameInput.style.borderColor='#f64f59'; return; }
-      state.playerName = name;
-      state.difficulty = document.querySelector('#diffRowNew .diff-btn.active')?.dataset.diff || 'easy';
-    }
-    savePlayer(state.playerName, state.difficulty);
+function buildConfigHTML(s){
+  if(s==='math') return `
+    <p class="picker-label">Sinf / daraja:</p>
+    <div class="picker-grid col4">
+      ${[4,5,6,7,8,9,10,11].map(g=>`<button class="pick-btn" data-g="${g}">${g}-sinf</button>`).join('')}
+      <button class="pick-btn" data-g="general" style="grid-column:span 2">Umumiy (aralash)</button>
+      <button class="pick-btn" data-g="olympiad" style="grid-column:span 2">Olimpiada</button>
+    </div>
+    <p class="picker-label">Qiyinlik:</p>
+    <div class="picker-grid col3">
+      <button class="pick-btn active" data-diff="easy">🌱 Oson</button>
+      <button class="pick-btn" data-diff="medium">🔥 O'rta</button>
+      <button class="pick-btn" data-diff="hard">⚡ Qiyin</button>
+    </div>
+    <button class="btn btn-primary mt-4" onclick="startGame()">O'yinni Boshlash 🚀</button>`;
+
+  if(s==='geo') return `
+    <p class="picker-label">Savol turi:</p>
+    <div class="picker-grid col2">
+      <button class="pick-btn active" data-topic="all">🌐 Hammasi</button>
+      <button class="pick-btn" data-topic="capital">🏛️ Poytaxtlar</button>
+      <button class="pick-btn" data-topic="continent">🗺️ Qit'alar</button>
+      <button class="pick-btn" data-topic="independence">📅 Mustaqillik</button>
+      <button class="pick-btn" data-topic="flag">🏳️ Bayroqlar</button>
+    </div>
+    <button class="btn btn-geo mt-4" onclick="startGame()">O'yinni Boshlash 🚀</button>`;
+
+  if(s==='hist') return `
+    <p class="picker-label">Davr:</p>
+    <div class="picker-grid col2">
+      <button class="pick-btn active" data-period="all">📚 Barcha davrlar</button>
+      <button class="pick-btn" data-period="qadim">⚱️ Qadim davr</button>
+      <button class="pick-btn" data-period="orta">🏰 O'rta asrlar</button>
+      <button class="pick-btn" data-period="yangi">📖 Yangi davr</button>
+      <button class="pick-btn" data-period="sovet">🔴 Sovet davri</button>
+      <button class="pick-btn" data-period="mustaqil">🇺🇿 Mustaqillik</button>
+    </div>
+    <button class="btn btn-hist mt-4" onclick="startGame()">O'yinni Boshlash 🚀</button>`;
+
+  if(s==='eng'){
+    const cats=Object.keys(window.ENGLISH_DATA?.categories||{});
+    return `
+    <p class="picker-label">Kategoriyalar (bir yoki bir nechta):</p>
+    <div class="chips-wrap" id="engCatChips">
+      <div class="chip active" data-cat="all">🌟 Barchasi</div>
+      ${cats.map(c=>`<div class="chip" data-cat="${c}">${catLabel(c)}</div>`).join('')}
+    </div>
+    <p class="picker-label">Savol yo'nalishi:</p>
+    <div class="picker-grid col3">
+      <button class="pick-btn active" data-mode="uz2en">🇺🇿→🇬🇧</button>
+      <button class="pick-btn" data-mode="en2uz">🇬🇧→🇺🇿</button>
+      <button class="pick-btn" data-mode="mix">🔀 Aralash</button>
+    </div>
+    <button class="btn btn-eng mt-4" onclick="startGame()">O'yinni Boshlash 🚀</button>`;
   }
-  state.score         = 0;
-  state.correctCount  = 0;
-  state.streak        = 0;
-  state.bestStreak    = 0;
-  state.questionIndex = 0;
-  state.levelReached  = 1;
+}
 
+const CAT_LABELS={hayvonlar:'🐾 Hayvonlar',mevalar:'🍎 Mevalar',sabzavotlar:'🥦 Sabzavotlar',ranglar:'🎨 Ranglar',raqamlar:'🔢 Raqamlar',oila:'👨‍👩‍👧 Oila',kiyim:'👗 Kiyim',uy:'🏠 Uy',taom:'🍽️ Taom',tabiat:'🌿 Tabiat',transport:'🚗 Transport',kasb:'💼 Kasb',maktab:'📚 Maktab',sport:'⚽ Sport',his:'❤️ His',kunlar:'📅 Kunlar',oylar:'🗓️ Oylar',salomlashish:'👋 Salomlashish',fe_llar:"⚡ Fe'llar",vaqt:'⏰ Vaqt',sifatlar:'📝 Sifatlar',joy:'📍 Joy'};
+function catLabel(c){return CAT_LABELS[c]||c;}
+
+function attachConfigListeners(s){
+  document.querySelectorAll('.pick-btn[data-g]').forEach(b=>b.addEventListener('click',()=>{
+    document.querySelectorAll('.pick-btn[data-g]').forEach(x=>x.classList.remove('active'));b.classList.add('active');state.grade=b.dataset.g;
+  }));
+  document.querySelectorAll('.pick-btn[data-diff]').forEach(b=>b.addEventListener('click',()=>{
+    document.querySelectorAll('.pick-btn[data-diff]').forEach(x=>x.classList.remove('active'));b.classList.add('active');state.diff=b.dataset.diff;
+  }));
+  document.querySelectorAll('.pick-btn[data-topic]').forEach(b=>b.addEventListener('click',()=>{
+    document.querySelectorAll('.pick-btn[data-topic]').forEach(x=>x.classList.remove('active'));b.classList.add('active');state.geoTopic=b.dataset.topic;
+  }));
+  document.querySelectorAll('.pick-btn[data-period]').forEach(b=>b.addEventListener('click',()=>{
+    document.querySelectorAll('.pick-btn[data-period]').forEach(x=>x.classList.remove('active'));b.classList.add('active');state.histPeriod=b.dataset.period;
+  }));
+  document.querySelectorAll('.pick-btn[data-mode]').forEach(b=>b.addEventListener('click',()=>{
+    document.querySelectorAll('.pick-btn[data-mode]').forEach(x=>x.classList.remove('active'));b.classList.add('active');state.engMode=b.dataset.mode;
+  }));
+  // English category chips
+  document.querySelectorAll('#engCatChips .chip').forEach(chip=>{
+    chip.addEventListener('click',()=>{
+      if(chip.dataset.cat==='all'){
+        document.querySelectorAll('#engCatChips .chip').forEach(c=>c.classList.remove('active'));
+        chip.classList.add('active');state.engCats=['all'];
+      } else {
+        document.querySelector('#engCatChips .chip[data-cat="all"]')?.classList.remove('active');
+        chip.classList.toggle('active');
+        state.engCats=Array.from(document.querySelectorAll('#engCatChips .chip.active')).map(c=>c.dataset.cat).filter(c=>c!=='all');
+        if(!state.engCats.length){document.querySelector('#engCatChips .chip[data-cat="all"]').classList.add('active');state.engCats=['all'];}
+      }
+    });
+  });
+}
+
+// ════════════════════════════════════════════════════════
+//  STATE
+// ════════════════════════════════════════════════════════
+let state={
+  subject:'math',grade:'general',diff:'easy',
+  geoTopic:'all',histPeriod:'all',engMode:'uz2en',engCats:['all'],
+  score:0,correct:0,streak:0,bestStreak:0,qIndex:0,
+  timer:null,timeLeft:10,answered:false,currentAnswer:null,
+  histPool:[],geoPool:[],engPool:[],
+};
+const TIMER_C=232.5;
+
+// ════════════════════════════════════════════════════════
+//  MATH QUESTION GENERATOR
+// ════════════════════════════════════════════════════════
+const MATH_GRADE={
+  4:  {ops:['+','-'],max:100,mul:10},
+  5:  {ops:['+','-','×'],max:200,mul:12},
+  6:  {ops:['+','-','×','÷'],max:500,mul:15},
+  7:  {ops:['+','-','×','÷'],max:999,mul:20},
+  8:  {ops:['+','-','×','÷'],max:999,mul:25},
+  9:  {ops:['+','-','×','÷'],max:9999,mul:30},
+  10: {ops:['+','-','×','÷'],max:9999,mul:50},
+  11: {ops:['+','-','×','÷'],max:9999,mul:99},
+  general:{ops:['+','-','×','÷'],max:999,mul:20},
+  olympiad:{ops:['+','-','×','÷'],max:9999,mul:99},
+};
+const OP_BADGES={'+':['Qo\'shish','op-add'],'-':['Ayirish','op-sub'],'×':['Ko\'paytirish','op-mul'],'÷':['Bo\'lish','op-div']};
+
+function rnd(a,b){return Math.floor(Math.random()*(b-a+1))+a;}
+function genMath(){
+  const cfg=MATH_GRADE[state.grade]||MATH_GRADE.general;
+  const diff=state.diff;
+  const maxMul=diff==='easy'?Math.floor(cfg.mul*.6):diff==='medium'?Math.floor(cfg.mul*.8):cfg.mul;
+  const maxN=diff==='easy'?Math.floor(cfg.max*.3):diff==='medium'?Math.floor(cfg.max*.6):cfg.max;
+  const op=cfg.ops[Math.floor(Math.random()*cfg.ops.length)];
+  let a,b,ans;
+  if(op==='+'){a=rnd(1,maxN);b=rnd(1,maxN);ans=a+b;}
+  else if(op==='-'){a=rnd(2,maxN);b=rnd(1,a);ans=a-b;}
+  else if(op==='×'){a=rnd(2,maxMul);b=rnd(2,maxMul);ans=a*b;}
+  else{b=rnd(2,maxMul);a=b*rnd(2,maxMul);ans=a/b;}
+  const wrong=new Set();
+  while(wrong.size<3){const d=rnd(1,Math.max(5,Math.floor(ans*.25)+3));const w=Math.random()<.5?ans+d:Math.max(1,ans-d);if(w!==ans&&w>0)wrong.add(w);}
+  const opts=[ans,...wrong].sort(()=>Math.random()-.5);
+  const [badge,cls]=OP_BADGES[op];
+  return{question:`${a} ${op} ${b} = ?`,answer:ans,options:opts,badge,badgeCls:cls};
+}
+
+// ════════════════════════════════════════════════════════
+//  GEO QUESTION GENERATOR
+// ════════════════════════════════════════════════════════
+function buildGeoPool(){
+  const countries=window.GEO_DATA?.countries||[];
+  const topic=state.geoTopic;
+  const types=['capital','continent','independence','flag'];
+  const pool=[];
+  countries.forEach(c=>{
+    const useTypes=topic==='all'?types:[topic];
+    useTypes.forEach(t=>pool.push({country:c,type:t}));
+  });
+  return shuffle(pool);
+}
+function genGeo(){
+  if(!state.geoPool.length) state.geoPool=buildGeoPool();
+  const item=state.geoPool.pop();
+  if(!item) return genGeo();
+  const [name,capital,continent,indep,flag]=item.country;
+  const all=window.GEO_DATA.countries;
+  let q,ans,opts;
+  if(item.type==='capital'){
+    q=`${name}ning poytaxti qaysi shahar?`;ans=capital;
+    const same=all.filter(c=>c[2]===continent&&c[1]!==capital);
+    opts=shuffle([capital,...pickRandom(same,3).map(c=>c[1])]).slice(0,4);
+    if(!opts.includes(capital))opts[0]=capital;
+  } else if(item.type==='continent'){
+    q=`${name} qaysi qit'ada joylashgan?`;ans=continent;
+    const conts=[...new Set(all.map(c=>c[2]))].filter(c=>c!==continent);
+    opts=shuffle([continent,...pickRandom(conts,3)]).slice(0,4);
+    if(!opts.includes(continent))opts[0]=continent;
+  } else if(item.type==='independence'){
+    q=`${name} qachon mustaqillikka erishdi?`;ans=indep+' yil';
+    const years=all.filter(c=>c[3]!==indep).map(c=>c[3]);
+    const wy=[...new Set(years)];
+    opts=shuffle([indep+' yil',...pickRandom(wy,3).map(y=>y+' yil')]).slice(0,4);
+    if(!opts.includes(indep+' yil'))opts[0]=indep+' yil';
+  } else {
+    q=`${flag} — Bu bayroq qaysi mamlakatniki?`;ans=name;
+    const others=all.filter(c=>c[0]!==name&&c[2]===continent);
+    opts=shuffle([name,...pickRandom(others,3).map(c=>c[0])]).slice(0,4);
+    if(!opts.includes(name))opts[0]=name;
+  }
+  return{question:q,answer:ans,options:opts,badge:'Geografiya',badgeCls:'op-geo'};
+}
+
+// ════════════════════════════════════════════════════════
+//  HISTORY QUESTION
+// ════════════════════════════════════════════════════════
+const HIST_PERIOD_MAP={qadim:[0,40],orta:[40,90],yangi:[90,120],sovet:[120,160],mustaqil:[160,213]};
+function buildHistPool(){
+  const qs=window.HISTORY_DATA?.questions||[];
+  let pool;
+  if(state.histPeriod==='all'){pool=qs.map((_,i)=>i);}
+  else{const[a,b]=HIST_PERIOD_MAP[state.histPeriod]||[0,qs.length];pool=Array.from({length:Math.min(b,qs.length)-a},(_,i)=>i+a);}
+  return shuffle(pool);
+}
+function genHist(){
+  if(!state.histPool.length) state.histPool=buildHistPool();
+  const idx=state.histPool.pop();
+  const qs=window.HISTORY_DATA?.questions||[];
+  if(idx===undefined||!qs[idx]) return genHist();
+  const item=qs[idx];
+  const opts=[...item.o];
+  return{question:item.q,answer:item.o[item.c],options:shuffle(opts),badge:'Tarix',badgeCls:'op-hist'};
+}
+
+// ════════════════════════════════════════════════════════
+//  ENGLISH QUESTION GENERATOR
+// ════════════════════════════════════════════════════════
+function buildEngPool(){
+  const cats=window.ENGLISH_DATA?.categories||{};
+  let pairs=[];
+  const chosen=state.engCats.includes('all')?Object.keys(cats):state.engCats;
+  chosen.forEach(c=>{if(cats[c])cats[c].forEach(p=>pairs.push({pair:p,cat:c}));});
+  return shuffle(pairs);
+}
+function genEng(){
+  if(!state.engPool.length) state.engPool=buildEngPool();
+  const item=state.engPool.pop();
+  if(!item) return genEng();
+  const [uz,en]=item.pair;
+  const cats=window.ENGLISH_DATA?.categories||{};
+  const mode=state.engMode==='mix'?(Math.random()<.5?'uz2en':'en2uz'):state.engMode;
+  // Get distractors from same category
+  const sameCat=(cats[item.cat]||[]).filter(p=>p[mode==='uz2en'?1:0]!==(mode==='uz2en'?en:uz));
+  const allPairs=Object.values(cats).flat().filter(p=>p[mode==='uz2en'?1:0]!==(mode==='uz2en'?en:uz));
+  const pool=sameCat.length>=3?sameCat:allPairs;
+  const wrong=pickRandom(pool,3).map(p=>mode==='uz2en'?p[1]:p[0]);
+  const ans=mode==='uz2en'?en:uz;
+  const q=mode==='uz2en'?`"${uz}" — inglizcha?`:`"${en}" — o'zbekcha?`;
+  const opts=shuffle([ans,...wrong]).slice(0,4);
+  if(!opts.includes(ans))opts[0]=ans;
+  return{question:q,answer:ans,options:opts,badge:mode==='uz2en'?'UZ → EN':'EN → UZ',badgeCls:'op-eng'};
+}
+
+// ════════════════════════════════════════════════════════
+//  UTILS
+// ════════════════════════════════════════════════════════
+function shuffle(a){const b=[...a];for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]];}return b;}
+function pickRandom(arr,n){return shuffle(arr).slice(0,n);}
+
+// ════════════════════════════════════════════════════════
+//  QUESTION DISPATCHER
+// ════════════════════════════════════════════════════════
+function getNextQuestion(){
+  switch(state.subject){
+    case 'math': return genMath();
+    case 'geo':  return genGeo();
+    case 'hist': return genHist();
+    case 'eng':  return genEng();
+  }
+}
+
+// ════════════════════════════════════════════════════════
+//  GAME START
+// ════════════════════════════════════════════════════════
+function startGame(replay=false){
+  if(!replay){
+    // Read config selections
+    const gBtn=document.querySelector('.pick-btn[data-g].active');
+    if(gBtn)state.grade=gBtn.dataset.g;
+    const dBtn=document.querySelector('.pick-btn[data-diff].active');
+    if(dBtn)state.diff=dBtn.dataset.diff;
+    const tBtn=document.querySelector('.pick-btn[data-topic].active');
+    if(tBtn)state.geoTopic=tBtn.dataset.topic;
+    const pBtn=document.querySelector('.pick-btn[data-period].active');
+    if(pBtn)state.histPeriod=pBtn.dataset.period;
+    const mBtn=document.querySelector('.pick-btn[data-mode].active');
+    if(mBtn)state.engMode=mBtn.dataset.mode;
+    // Reset pools
+    state.histPool=[];state.geoPool=[];state.engPool=[];
+  }
+  state.score=0;state.correct=0;state.streak=0;state.bestStreak=0;state.qIndex=0;
+  // Update progress bar color
+  const pb=document.getElementById('progressBar');
+  pb.className='progress-bar-fill '+SUBJ_META[state.subject].prog;
   showScreen('screen-game');
   loadQuestion();
 }
 
-// ═══════════════════════════════════════════
-//  QUESTION LOADING
-// ═══════════════════════════════════════════
-function loadQuestion() {
-  state.answered = false;
-  state.questionIndex++;
-  state.levelReached = Math.ceil(state.questionIndex / 5);
+// ════════════════════════════════════════════════════════
+//  LOAD QUESTION
+// ════════════════════════════════════════════════════════
+function loadQuestion(){
+  state.answered=false;state.qIndex++;
+  const q=getNextQuestion();
+  state.currentAnswer=q.answer;
 
-  const q = generateQuestion(state.questionIndex);
-  state.currentAnswer = q.answer;
+  document.getElementById('questionNum').textContent=state.qIndex;
+  document.getElementById('qNumLabel').textContent=state.qIndex+'-savol';
+  const badge=document.getElementById('opBadge');
+  badge.textContent=q.badge;badge.className='op-badge '+q.badgeCls;
 
-  // Update UI
-  document.getElementById('questionNum').textContent = state.questionIndex;
-  document.getElementById('questionNumLabel').textContent = state.questionIndex + '-savol';
+  const qt=document.getElementById('questionText');
+  qt.classList.remove('shake');void qt.offsetWidth;
+  qt.textContent=q.question;
+  qt.className='question-text'+(q.question.length>30?' small':'');
 
-  const opBadge = document.getElementById('opBadge');
-  opBadge.textContent = OP_NAMES[q.op];
-  opBadge.className   = 'op-badge ' + OP_CLASSES[q.op];
+  const qb=document.getElementById('questionBox');
+  qb.style.animation='none';void qb.offsetWidth;qb.style.animation='';
 
-  const qText = document.getElementById('questionText');
-  qText.classList.remove('shake');
-  void qText.offsetWidth;
-  document.getElementById('questionText').textContent = q.question;
+  const labels=['A','B','C','D'];
+  document.getElementById('optionsGrid').innerHTML=q.options.slice(0,4).map((opt,i)=>`
+    <button class="option-btn${typeof opt==='string'&&opt.length>6?' text':''}" onclick="selectAnswer(${JSON.stringify(opt)},this,event)">
+      <span class="opt-label">${labels[i]}</span>${opt}
+    </button>`).join('');
 
-  // Re-animate question box
-  const box = document.getElementById('questionBox');
-  box.style.animation = 'none';
-  void box.offsetWidth;
-  box.style.animation = '';
-
-  // Render options
-  const grid = document.getElementById('optionsGrid');
-  const labels = ['A', 'B', 'C', 'D'];
-  grid.innerHTML = q.options.map((opt, i) => `
-    <button class="option-btn" onclick="selectAnswer(${opt}, this, event)">
-      <span class="option-label">${labels[i]}</span>
-      ${opt}
-    </button>
-  `).join('');
-
-  // Score display
-  document.getElementById('scoreDisplay').textContent = state.score;
-
-  // Streak badge
-  const streakBadge = document.getElementById('streakBadge');
-  if (state.streak >= 2) {
-    streakBadge.style.display = '';
-    document.getElementById('streakCount').textContent = state.streak;
-  } else {
-    streakBadge.style.display = 'none';
-  }
+  document.getElementById('scoreDisplay').textContent=state.score;
+  const sb=document.getElementById('streakBadge');
+  if(state.streak>=2){sb.style.display='';document.getElementById('streakCount').textContent=state.streak;}
+  else sb.style.display='none';
 
   startTimer();
 }
 
-// ═══════════════════════════════════════════
+// ════════════════════════════════════════════════════════
 //  TIMER
-// ═══════════════════════════════════════════
-function startTimer() {
-  clearTimer();
-  state.timeLeft = 10;
-  updateTimerUI(10);
-
-  state.timer = setInterval(() => {
-    state.timeLeft--;
-    updateTimerUI(state.timeLeft);
-    if (state.timeLeft <= 3) sfxTick();
-    if (state.timeLeft <= 0) {
-      clearTimer();
-      onTimeOut();
-    }
-  }, 1000);
+// ════════════════════════════════════════════════════════
+function startTimer(){
+  clearTimer();state.timeLeft=10;updateTimerUI(10);
+  state.timer=setInterval(()=>{
+    state.timeLeft--;updateTimerUI(state.timeLeft);
+    if(state.timeLeft<=3)sfxTick();
+    if(state.timeLeft<=0){clearTimer();onTimeout();}
+  },1000);
 }
-
-function clearTimer() {
-  if (state.timer) { clearInterval(state.timer); state.timer = null; }
+function clearTimer(){if(state.timer){clearInterval(state.timer);state.timer=null;}}
+function updateTimerUI(t){
+  const ring=document.getElementById('timerRing');const txt=document.getElementById('timerText');
+  const off=TIMER_C*(1-t/10);ring.style.strokeDashoffset=off;
+  const col=t>6?'#6c63ff':t>3?'#f7971e':'#f64f59';ring.style.stroke=col;txt.textContent=t;txt.style.color=col;
 }
-
-function updateTimerUI(t) {
-  const ring    = document.getElementById('timerRing');
-  const text    = document.getElementById('timerText');
-  const pct     = t / 10;
-  const offset  = TIMER_CIRCUMFERENCE * (1 - pct);
-  ring.style.strokeDashoffset = offset;
-  const color = t > 6 ? '#6c63ff' : t > 3 ? '#f7971e' : '#f64f59';
-  ring.style.stroke = color;
-  text.textContent  = t;
-  text.style.color  = color;
-}
-
-function onTimeOut() {
-  if (state.answered) return;
-  state.answered = true;
-  // Highlight correct answer
-  document.querySelectorAll('.option-btn').forEach(btn => {
-    if (parseInt(btn.textContent.trim().split('\n').pop()) === state.currentAnswer) {
-      btn.classList.add('correct');
-    }
-    btn.disabled = true;
+function onTimeout(){
+  if(state.answered)return;state.answered=true;
+  document.querySelectorAll('.option-btn').forEach(b=>{
+    if(String(b.textContent.trim().replace(/^[A-D]\s*/,'')).trim()===String(state.currentAnswer))b.classList.add('correct');
+    b.disabled=true;
   });
-  document.getElementById('questionText').classList.add('shake');
-  sfxWrong();
-  setTimeout(endGame, 1200);
+  document.getElementById('questionText').classList.add('shake');sfxNo();
+  setTimeout(endGame,1100);
 }
 
-// ═══════════════════════════════════════════
+// ════════════════════════════════════════════════════════
 //  ANSWER SELECTION
-// ═══════════════════════════════════════════
-function selectAnswer(value, btnEl, event) {
-  if (state.answered) return;
-  state.answered = true;
-  clearTimer();
-
-  document.querySelectorAll('.option-btn').forEach(b => b.disabled = true);
-
-  if (value === state.currentAnswer) {
-    btnEl.classList.add('correct');
-    state.correctCount++;
-    state.streak++;
-    if (state.streak > state.bestStreak) state.bestStreak = state.streak;
-
-    // Score: base 100 + bonus for time remaining
-    const pts = 100 + state.timeLeft * 10 + (state.streak > 1 ? (state.streak - 1) * 20 : 0);
-    state.score += pts;
-
-    sfxCorrect();
-    if (state.streak >= 3) sfxStreak();
-
-    // Floating points
-    const rect = btnEl.getBoundingClientRect();
-    showFloatPts(pts, rect.left + rect.width/2, rect.top);
-
-    // Confetti burst
-    launchConfetti(rect.left + rect.width/2, rect.top + rect.height/2);
-
-    // Streak badge pop
-    if (state.streak >= 2) {
-      const sb = document.getElementById('streakBadge');
-      sb.style.display = '';
-      document.getElementById('streakCount').textContent = state.streak;
-      sb.classList.remove('pop');
-      void sb.offsetWidth;
-      sb.classList.add('pop');
-    }
-
-    // Progress bar
-    const prog = Math.min(100, (state.questionIndex / 20) * 100);
-    document.getElementById('progressBar').style.width = prog + '%';
-
-    // Next question after brief delay
-    setTimeout(loadQuestion, 700);
+// ════════════════════════════════════════════════════════
+function selectAnswer(value,btn,event){
+  if(state.answered)return;state.answered=true;clearTimer();
+  document.querySelectorAll('.option-btn').forEach(b=>b.disabled=true);
+  if(String(value)===String(state.currentAnswer)){
+    btn.classList.add('correct');
+    state.correct++;state.streak++;
+    if(state.streak>state.bestStreak)state.bestStreak=state.streak;
+    const pts=100+state.timeLeft*10+(state.streak>1?(state.streak-1)*20:0);
+    state.score+=pts;
+    sfxOk();if(state.streak>=3)sfxStreak();
+    const r=btn.getBoundingClientRect();
+    floatPts(pts,r.left+r.width/2,r.top);
+    launchConfetti(r.left+r.width/2,r.top+r.height/2);
+    const sb=document.getElementById('streakBadge');
+    if(state.streak>=2){sb.style.display='';document.getElementById('streakCount').textContent=state.streak;sb.classList.remove('pop');void sb.offsetWidth;sb.classList.add('pop');}
+    document.getElementById('progressBar').style.width=Math.min(100,(state.qIndex/50)*100)+'%';
+    setTimeout(loadQuestion,650);
   } else {
-    btnEl.classList.add('wrong');
-    // Reveal correct
-    document.querySelectorAll('.option-btn').forEach(b => {
-      const v = parseInt(b.textContent.trim().split('\n').pop());
-      if (v === state.currentAnswer) b.classList.add('correct');
-    });
-    document.getElementById('questionText').classList.add('shake');
-    sfxWrong();
-    setTimeout(endGame, 1200);
+    btn.classList.add('wrong');
+    document.querySelectorAll('.option-btn').forEach(b=>{if(String(b.textContent.replace(/^[A-D]\s*/,'').trim())===String(state.currentAnswer))b.classList.add('correct');});
+    document.getElementById('questionText').classList.add('shake');sfxNo();
+    state.streak=0;
+    setTimeout(endGame,1100);
   }
 }
 
-// ═══════════════════════════════════════════
-//  GAME OVER
-// ═══════════════════════════════════════════
-function endGame() {
-  clearTimer();
-  sfxGameOver();
+// ════════════════════════════════════════════════════════
+//  END GAME
+// ════════════════════════════════════════════════════════
+function endGame(){
+  clearTimer();sfxEnd();
+  const p=getPlayer();
+  const subjKey=state.subject+'-'+(state.grade||state.geoTopic||state.histPeriod||state.engMode||'all');
+  const entry={name:p?.name||'?',score:state.score,correct:state.correct,streak:state.bestStreak,subject:state.subject,key:subjKey,date:new Date().toLocaleDateString('uz-UZ')};
+  addLocalScore(entry);
+  apiSubmit({playerName:entry.name,score:state.score,correctAnswers:state.correct,bestStreak:state.bestStreak,levelReached:Math.ceil(state.qIndex/5),difficulty:subjKey});
 
-  // Save to leaderboard
-  saveScore({
-    name:       state.playerName,
-    score:      state.score,
-    correct:    state.correctCount,
-    bestStreak: state.bestStreak,
-    level:      state.levelReached,
-    difficulty: state.difficulty,
-    date:       new Date().toLocaleDateString('uz-UZ'),
-  });
-
-  // Determine emoji & title
-  let emoji, title;
-  if (state.correctCount >= 15)     { emoji='🏆'; title='Ustoz! Ajoyib natija!'; }
-  else if (state.correctCount >= 10) { emoji='🔥'; title='Zo\'r! Davom eting!'; }
-  else if (state.correctCount >= 5)  { emoji='👍'; title='Yaxshi harakat!'; }
-  else                               { emoji='💪'; title='Mashq qiling!'; }
-
-  document.getElementById('gameoverEmoji').textContent = emoji;
-  document.getElementById('gameoverTitle').textContent = title;
-  document.getElementById('finalScore').textContent    = state.score;
-  document.getElementById('statCorrect').textContent   = state.correctCount;
-  document.getElementById('statBest').textContent      = state.bestStreak;
-  document.getElementById('statLevel').textContent     = state.levelReached;
-
+  let emoji,title;
+  if(state.correct>=20){emoji='🏆';title='Ustoz! Ajoyib!';}
+  else if(state.correct>=10){emoji='🔥';title='Zo\'r natija!';}
+  else if(state.correct>=5){emoji='👍';title='Yaxshi harakat!';}
+  else{emoji='💪';title='Davom eting!';}
+  document.getElementById('gameoverEmoji').textContent=emoji;
+  document.getElementById('gameoverTitle').textContent=title;
+  document.getElementById('finalScore').textContent=state.score;
+  document.getElementById('statCorrect').textContent=state.correct;
+  document.getElementById('statStreak').textContent=state.bestStreak;
+  document.getElementById('statQ').textContent=state.qIndex;
   showScreen('screen-gameover');
-
-  // Big confetti on good result
-  if (state.correctCount >= 5) {
-    setTimeout(() => {
-      launchConfetti(window.innerWidth * 0.3, window.innerHeight * 0.4);
-      launchConfetti(window.innerWidth * 0.7, window.innerHeight * 0.4);
-    }, 300);
-  }
+  if(state.correct>=5){setTimeout(()=>{launchConfetti(window.innerWidth*.3,window.innerHeight*.4);launchConfetti(window.innerWidth*.7,window.innerHeight*.4);},300);}
 }
 
-// ═══════════════════════════════════════════
-//  LEADERBOARD (localStorage)
-// ═══════════════════════════════════════════
-const LS_KEY = 'mathrace_scores_v2';
+// ════════════════════════════════════════════════════════
+//  LEADERBOARD
+// ════════════════════════════════════════════════════════
+const LB_FILTERS=[
+  {label:'Hammasi',key:'all'},
+  {label:'🔢 Math',key:'math'},
+  {label:'🌍 Geo',key:'geo'},
+  {label:'📜 Tarix',key:'hist'},
+  {label:'🇬🇧 Ingliz',key:'eng'},
+];
+let lbFilter='all';
 
-function getLeaderboard() {
-  try { return JSON.parse(localStorage.getItem(LS_KEY)) || []; }
-  catch(e) { return []; }
-}
-
-function saveScore(entry) {
-  // Local cache
-  const scores = getLeaderboard();
-  scores.push(entry);
-  scores.sort((a, b) => b.score - a.score);
-  localStorage.setItem(LS_KEY, JSON.stringify(scores.slice(0, 100)));
-  // Global API (fire-and-forget)
-  apiSubmitScore({
-    playerName:     entry.name,
-    score:          entry.score,
-    correctAnswers: entry.correct,
-    bestStreak:     entry.bestStreak,
-    levelReached:   entry.level,
-    difficulty:     entry.difficulty,
-  });
-}
-
-async function renderLeaderboard() {
-  const filter = document.querySelector('input[name="lbFilter"]:checked')?.value || 'all';
-  const list   = document.getElementById('leaderboardList');
-
-  list.innerHTML = `<div class="empty-lb" style="opacity:.5">Yuklanmoqda...</div>`;
-
-  // Try API first, fall back to localStorage
-  const apiScores = await apiFetchLeaderboard(filter);
-
-  let scores;
-  if (apiScores && apiScores.length > 0) {
-    // Map API response fields to local shape
-    scores = apiScores.map(s => ({
-      name:       s.playerName,
-      score:      s.score,
-      correct:    s.correctAnswers,
-      bestStreak: s.bestStreak,
-      difficulty: s.difficulty,
-      date:       new Date(s.createdAt).toLocaleDateString('uz-UZ'),
-    }));
-  } else {
-    // Fallback to localStorage
-    scores = getLeaderboard();
-    if (filter !== 'all') scores = scores.filter(s => s.difficulty === filter);
-    scores = scores.slice(0, 20);
-  }
-
-  if (!scores.length) {
-    list.innerHTML = `<div class="empty-lb">🎯 Hali hech kim o'ynamagan!<br>Birinchi bo'ling!</div>`;
-    return;
-  }
-
-  const rankEmoji = (i) => i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : null;
-  const rankClass = (i) => i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : '';
-  const diffBadge = (d) => d === 'easy' ? '🌱' : d === 'medium' ? '🔥' : '⚡';
-
-  list.innerHTML = scores.map((s, i) => {
-    const isMe  = s.name === state.playerName;
-    const emoji = rankEmoji(i);
-    return `
-      <div class="lb-row ${isMe ? 'highlight' : ''}" style="animation-delay:${i*0.05}s">
-        <div class="lb-rank ${rankClass(i)}">${emoji || (i+1)}</div>
-        <div>
-          <div class="lb-name">${escHtml(s.name)} ${isMe ? '<span style="color:#a78bfa;font-size:.75rem">(siz)</span>' : ''}</div>
-          <div style="font-size:.75rem;color:rgba(255,255,255,.4)">${diffBadge(s.difficulty||'easy')} ${s.date||''}</div>
-        </div>
-        <div style="text-align:right">
-          <div class="lb-score">${s.score}</div>
-          <div class="lb-correct">✓ ${s.correct||0} savol</div>
-        </div>
+function renderLeaderboard(){
+  const fr=document.getElementById('lbFilters');
+  fr.innerHTML=LB_FILTERS.map(f=>`<button class="lb-filter-btn${lbFilter===f.key?' active':''}" onclick="setLbFilter('${f.key}')">${f.label}</button>`).join('');
+  const scores=getLocalScores().filter(s=>lbFilter==='all'||s.subject===lbFilter).slice(0,20);
+  const list=document.getElementById('leaderboardList');
+  const p=getPlayer();
+  if(!scores.length){list.innerHTML='<div class="empty-lb">🎯 Hali natija yo\'q!</div>';return;}
+  const rankEmoji=i=>i===0?'🥇':i===1?'🥈':i===2?'🥉':null;
+  const rankCls=i=>i===0?'gold':i===1?'silver':i===2?'bronze':'';
+  const subIcon={math:'🔢',geo:'🌍',hist:'📜',eng:'🇬🇧'};
+  list.innerHTML=scores.map((s,i)=>`
+    <div class="lb-row${s.name===p?.name?' me':''}" style="animation-delay:${i*.05}s">
+      <div class="lb-rank ${rankCls(i)}">${rankEmoji(i)||(i+1)}</div>
+      <div>
+        <div class="lb-name">${esc(s.name)}${s.name===p?.name?' <span style="color:#a78bfa;font-size:.72rem">(siz)</span>':''}</div>
+        <div style="font-size:.72rem;color:rgba(255,255,255,.4)">${subIcon[s.subject]||'📚'} ${s.date||''} · ✓${s.correct}</div>
       </div>
-    `;
-  }).join('');
+      <div style="text-align:right">
+        <div class="lb-score-val">${s.score}</div>
+      </div>
+    </div>`).join('');
 }
+function setLbFilter(k){lbFilter=k;renderLeaderboard();}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
-function escHtml(s) {
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
-// ═══════════════════════════════════════════
-//  ENTER KEY SUPPORT
-// ═══════════════════════════════════════════
-document.getElementById('playerName').addEventListener('keydown', e => {
-  if (e.key === 'Enter') startGame();
-  document.getElementById('playerName').style.borderColor = '';
+// ════════════════════════════════════════════════════════
+//  KEYBOARD SHORTCUTS
+// ════════════════════════════════════════════════════════
+document.getElementById('playerName').addEventListener('keydown',e=>{
+  if(e.key==='Enter')saveNewPlayer();
+  document.getElementById('playerName').style.borderColor='';
+});
+document.addEventListener('keydown',e=>{
+  if(!document.getElementById('screen-game').classList.contains('active'))return;
+  const map={'1':0,'2':1,'3':2,'4':3,a:0,b:1,c:2,d:3};
+  const idx=map[e.key.toLowerCase()];
+  if(idx!==undefined){const btns=document.querySelectorAll('.option-btn');if(btns[idx]&&!btns[idx].disabled)btns[idx].click();}
 });
 
-// Keyboard shortcuts: 1,2,3,4 for options
-document.addEventListener('keydown', e => {
-  if (!document.getElementById('screen-game').classList.contains('active')) return;
-  const map = { '1':0, '2':1, '3':2, '4':3, 'a':0, 'b':1, 'c':2, 'd':3 };
-  const idx = map[e.key.toLowerCase()];
-  if (idx !== undefined) {
-    const btns = document.querySelectorAll('.option-btn');
-    if (btns[idx] && !btns[idx].disabled) btns[idx].click();
-  }
-});
-
-// ═══════════════════════════════════════════
+// ════════════════════════════════════════════════════════
 //  INIT
-// ═══════════════════════════════════════════
-(function init() {
-  const saved = getSavedPlayer();
-  if (saved && saved.name) {
-    // Returning player — show their name, hide new player form
-    state.playerName = saved.name;
-    document.getElementById('savedNameDisplay').textContent = saved.name;
-    document.getElementById('returningView').style.display = '';
-    document.getElementById('newPlayerView').style.display = 'none';
-    // Set saved difficulty active
-    const diff = saved.difficulty || 'easy';
-    document.querySelectorAll('.diff-btn').forEach(b => {
-      b.classList.toggle('active', b.dataset.diff === diff);
-    });
-    state.difficulty = diff;
-  } else {
-    document.getElementById('returningView').style.display = 'none';
-    document.getElementById('newPlayerView').style.display = '';
-  }
-  updateWelcomeStats();
+// ════════════════════════════════════════════════════════
+(function init(){
+  const p=getPlayer();
+  if(p?.name){goHub();}
+  else{showScreen('screen-welcome');updateStats('welcomeStats');}
 })();
 </script>
 </body>
