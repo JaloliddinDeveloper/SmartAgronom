@@ -716,10 +716,16 @@ function loadQuestion(){
   qb.style.animation='none';void qb.offsetWidth;qb.style.animation='';
 
   const labels=['A','B','C','D'];
-  document.getElementById('optionsGrid').innerHTML=q.options.slice(0,4).map((opt,i)=>`
-    <button class="option-btn${typeof opt==='string'&&opt.length>6?' text':''}" onclick="selectAnswer(${JSON.stringify(opt)},this,event)">
-      <span class="opt-label">${labels[i]}</span>${opt}
-    </button>`).join('');
+  const og=document.getElementById('optionsGrid');
+  og.innerHTML='';
+  q.options.slice(0,4).forEach((opt,i)=>{
+    const btn=document.createElement('button');
+    btn.className='option-btn'+(typeof opt==='string'&&String(opt).length>6?' text':'');
+    btn.dataset.val=String(opt);
+    btn.innerHTML=`<span class="opt-label">${labels[i]}</span>${opt}`;
+    btn.addEventListener('click',function(e){selectAnswer(this.dataset.val,this,e);});
+    og.appendChild(btn);
+  });
 
   document.getElementById('scoreDisplay').textContent=state.score;
   const sb=document.getElementById('streakBadge');
@@ -749,7 +755,7 @@ function updateTimerUI(t){
 function onTimeout(){
   if(state.answered)return;state.answered=true;
   document.querySelectorAll('.option-btn').forEach(b=>{
-    if(String(b.textContent.trim().replace(/^[A-D]\s*/,'')).trim()===String(state.currentAnswer))b.classList.add('correct');
+    if(b.dataset.val===String(state.currentAnswer))b.classList.add('correct');
     b.disabled=true;
   });
   document.getElementById('questionText').classList.add('shake');sfxNo();
@@ -778,7 +784,7 @@ function selectAnswer(value,btn,event){
     setTimeout(loadQuestion,650);
   } else {
     btn.classList.add('wrong');
-    document.querySelectorAll('.option-btn').forEach(b=>{if(String(b.textContent.replace(/^[A-D]\s*/,'').trim())===String(state.currentAnswer))b.classList.add('correct');});
+    document.querySelectorAll('.option-btn').forEach(b=>{if(b.dataset.val===String(state.currentAnswer))b.classList.add('correct');});
     document.getElementById('questionText').classList.add('shake');sfxNo();
     state.streak=0;
     setTimeout(endGame,1100);
