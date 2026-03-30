@@ -115,14 +115,14 @@ window.GEO_DATA = {
     ["Nikaragua",            "Managua",         "Shimoliy Amerika", "1821", "🇳🇮"],
 
     // ── JANUBIY AMERIKA (South America) ──────────────────────
-    ["Braziliya",            "Braziliya",       "Janubiy Amerika",  "1822", "🇧🇷"],
+    ["Braziliya",            "Braziliya (Brasília)", "Janubiy Amerika",  "1822", "🇧🇷"],
     ["Argentina",            "Buenos-Ayres",    "Janubiy Amerika",  "1816", "🇦🇷"],
     ["Chili",                "Santyago",        "Janubiy Amerika",  "1818", "🇨🇱"],
     ["Peru",                 "Lima",            "Janubiy Amerika",  "1821", "🇵🇪"],
     ["Kolumbiya",            "Bogota",          "Janubiy Amerika",  "1810", "🇨🇴"],
     ["Venesuela",            "Karakas",         "Janubiy Amerika",  "1811", "🇻🇪"],
     ["Ekvador",              "Kito",            "Janubiy Amerika",  "1822", "🇪🇨"],
-    ["Boliviya",             "Sukre",           "Janubiy Amerika",  "1825", "🇧🇴"],
+    ["Boliviya",             "Sukre (La-Pas)",   "Janubiy Amerika",  "1825", "🇧🇴"],
     ["Paragvay",             "Asunsyon",        "Janubiy Amerika",  "1811", "🇵🇾"],
     ["Urugvay",              "Montevideo",      "Janubiy Amerika",  "1825", "🇺🇾"],
     ["Gayana",               "Jorjtaun",        "Janubiy Amerika",  "1966", "🇬🇾"],
