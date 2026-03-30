@@ -17,17 +17,20 @@ public class MathScoreRepository(ApplicationDbContext dbContext)
 
         if (filterByDifficulty)
         {
+            // difficulty is a subject prefix like "math", "geo", "hist", "eng".
+            // Stored values are "math-grade4-easy", "geo-capitals", etc.
+            // LIKE 'math%' matches all subject variants.
             return await DbSet.FromSqlRaw(
                 """
                 SELECT * FROM (
                     SELECT DISTINCT ON (player_name) *
                     FROM math_scores
-                    WHERE difficulty = {0}
+                    WHERE difficulty LIKE {0}
                     ORDER BY player_name, score DESC, correct_answers DESC
                 ) best
                 ORDER BY score DESC, correct_answers DESC
                 LIMIT {1}
-                """, difficulty!, limit)
+                """, difficulty! + "%", limit)
                 .AsNoTracking()
                 .ToListAsync(ct);
         }
