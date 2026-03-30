@@ -293,7 +293,7 @@ window.HISTORY_DATA = {
      o:["X asr oxiri","XI asr o'rtalari","XII asr","IX asr"],c:1},
 
     {q:"Saljuqiylar poytaxti dastlab qaysi shahar edi?",
-     o:["Bag'dod","Nishoppur","Isfahan","Marv"],c:3},
+     o:["Bag'dod","Nishoppur","Isfahan","Marv"],c:1},
 
     {q:"Chingizxon Movarounnahrni qachon bosib oldi?",
      o:["1206–1210 yillarda","1219–1221 yillarda","1230–1235 yillarda","1200–1205 yillarda"],c:1},
@@ -374,7 +374,7 @@ window.HISTORY_DATA = {
      o:["1450 yilda","1500 yilda","1550 yilda","1600 yilda"],c:1},
 
     {q:"Shayboniylar qaysi xalqdan edi?",
-     o:["Mo'g'ul","O'zbek (o'zbek-qo'ng'irot qabilasi)","Tojik","Eron"],c:1},
+     o:["Mo'g'ul","O'zbek (Oltin O'rda – shayboniy urug'i)","Tojik","Eron"],c:1},
 
     {q:"Buxoro xonligi qachon tashkil topdi?",
      o:["XV asr oxiri","XVI asr boshida Shayboniylar tomonidan","XVII asrda","XIV asrda"],c:1},
@@ -927,7 +927,7 @@ window.ENGLISH_DATA = {
       ["nektarin","nectarine"],
       ["laym","lime"],
       ["behi","quince"],
-      ["xurmo","date"]
+      ["hurmo","date"]
     ],
 
     // ── sabzavotlar (25+ pairs) ───────────────────────────
@@ -949,12 +949,12 @@ window.ENGLISH_DATA = {
       ["no'xat","pea"],
       ["makkajo'xori","corn"],
       ["brokkoli","broccoli"],
-      ["qorovul (karnabahar)","cauliflower"],
+      ["karnabahar","cauliflower"],
       ["shpinat","spinach"],
       ["salat","lettuce"],
       ["ukrop","dill"],
       ["ko'k piyoz","green onion"],
-      ["reddish","radish"],
+      ["turp","radish"],
       ["selderey","celery"],
       ["asparagus","asparagus"],
       ["artishok","artichoke"]
@@ -977,8 +977,8 @@ window.ENGLISH_DATA = {
       ["oltin","gold"],
       ["moviy","light blue"],
       ["to'q ko'k","dark blue"],
-      ["qo'ng'ir","beige"],
-      ["limon sariq","lemon"],
+      ["krem rangi","beige"],
+      ["limon sariq","lemon yellow"],
       ["liloviy","lilac"],
       ["terang yashil","lime"],
       ["marjon rangi","coral"],
